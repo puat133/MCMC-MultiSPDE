@@ -23,7 +23,7 @@ spec = [
 
 @nb.jitclass(spec)
 class pCN():
-    def __init__(self,LMat,rand_genn,uStdev,beta=1):
+    def __init__(self,LMat,rand_genn,uStdev,init_sample,beta=1):
         self.LMat = LMat
         self.rand_genn = rand_genn
         self.uStdev = uStdev
@@ -31,7 +31,9 @@ class pCN():
         self.betaZ = 1-np.sqrt(beta**2)
         
         #TODO: modify this
-        self.current_sample = self.rand_genn.construct_w_half()
+        self.current_sample = init_sample
+        self.LMat.construct_from(init_sample)
+        self.LMat.set_current_L_to_latest()
         self.norm_current_sample = util.norm2(self.current_sample/self.uStdev)
         self.current_log_det_L = self.LMat.logDet()
 
@@ -47,6 +49,9 @@ class pCN():
         logRatio += (log_det_newL-self.current_log_det_L)
         return logRatio
 
+    def get_current_L(self):
+        return self.LMat.current_L
+        
     def oneStep(self,v):
         norm_L_v_2 = util.norm2(self.LMat.current_L@v)
 
