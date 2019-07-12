@@ -51,16 +51,16 @@ def matMulti(A,D):
 
     return C
 
-@njitParallel
-def logDet(L):
-    """
-    # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues
-    # L^dagger L is Hermitian
-    """
-    return (np.linalg.slogdet(L)[1])
-    # return 0.5*(np.linalg.slogdet(L.T.conj()@L)[1])
-    # return 0.5*np.sum(np.log(np.linalg.eigvalsh(L.T.conj()@L)))
-    # return  np.sum(np.log(np.absolute(np.linalg.eigvals(L))))
+# @njitParallel
+# def logDet(L):
+#     """
+#     # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues
+#     # L^dagger L is Hermitian
+#     """
+#     return (np.linalg.slogdet(L)[1])
+#     # return 0.5*(np.linalg.slogdet(L.T.conj()@L)[1])
+#     # return 0.5*np.sum(np.log(np.linalg.eigvalsh(L.T.conj()@L)))
+#     # return  np.sum(np.log(np.absolute(np.linalg.eigvals(L))))
 
 @njitParallel
 def kappaFun(ut):
