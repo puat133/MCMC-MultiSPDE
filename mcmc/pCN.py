@@ -64,7 +64,7 @@ class pCN():
 
         logRatio = self.computelogRatio(norm_L_v_2,norm_newL_v_2,norm_new_sample,log_det_newL)
 
-        if logRatio>np.log(np.random.randn()):
+        if logRatio>np.log(np.random.rand()):
             self.current_sample = newSample
             self.norm_current_sample = norm_new_sample
             self.current_log_det_L = log_det_newL
