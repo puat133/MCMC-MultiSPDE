@@ -11,8 +11,8 @@ L_matrix_type.define(L.Lmatrix.class_type.instance_type)
 Rand_gen_type.define(randomGenerator.RandomGenerator.class_type.instance_type)  
 spec = [
     ('LMat',L_matrix_type),
-    ('rand_genn',Rand_gen_type),
-    ('uStdev',nb.float64[:]),
+    ('rand_gen',Rand_gen_type),
+    ('uStdev',nb.complex128[:]),
     ('beta',nb.float64),
     ('betaZ',nb.float64),
     ('current_sample',nb.complex128[:]),
@@ -23,9 +23,9 @@ spec = [
 
 @nb.jitclass(spec)
 class pCN():
-    def __init__(self,LMat,rand_genn,uStdev,init_sample,beta=1):
+    def __init__(self,LMat,rg,uStdev,init_sample,beta=1):
         self.LMat = LMat
-        self.rand_genn = rand_genn
+        self.rand_gen = rg
         self.uStdev = uStdev
         self.beta = beta
         self.betaZ = 1-np.sqrt(beta**2)
@@ -39,7 +39,7 @@ class pCN():
 
 
     def sample(self):
-        newSample = self.betaZ*self.current_sample + self.beta*self.uStdev*self.rand_genn.construct_w_half()
+        newSample = self.betaZ*self.current_sample + self.beta*self.uStdev*self.rand_gen.construct_w_half()
         return newSample
 
     def computelogRatio(self,norm_L_v_2,norm_newL_v_2,norm_new_sample,log_det_newL):
@@ -51,6 +51,10 @@ class pCN():
 
     def get_current_L(self):
         return self.LMat.current_L
+
+    def set_beta(self,newBeta):
+        self.beta = newBeta
+        self.betaZ = np.sqrt(1-newBeta**2)
         
     def oneStep(self,v):
         norm_L_v_2 = util.norm2(self.LMat.current_L@v)
