@@ -1,21 +1,21 @@
 import numpy as np
 import numba as nb
 import mcmc.util as util
-import mcmc.fourier as fourier
+# import mcmc.fourier as fourier
 
-fourier_type = nb.deferred_type()
-fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)
+# fourier_type = nb.deferred_type()
+# fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)
 spec = [
-    ('fourier',fourier_type),
+    # ('fourier',fourier_type),
     ('length',nb.int64),
     ('sqrt2',nb.float64)
 ]
 
 @nb.jitclass(spec)
 class RandomGenerator:
-    def __init__(self,fourier):
-        self.fourier = fourier
-        self.length = self.fourier.fourier_basis_number
+    def __init__(self,length):
+        # self.fourier = fourier
+        self.length = length
         self.sqrt2 = np.sqrt(2)
 
     def construct_w_half(self):
