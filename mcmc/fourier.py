@@ -24,7 +24,7 @@ class FourierAnalysis:
         self.fourier_extended_basis_number = fourier_extended_basis_number
         self.t_end = t_end
         self.t_start = t_start
-        self.dt = t_end - t_start
+        
         self.Dmatrix = -(2*np.pi)**2*np.diag(np.arange(-(self.fourier_basis_number-1),self.fourier_basis_number)**2)
         self.Imatrix = np.eye(2*self.fourier_basis_number-1)
         self.prepare()
@@ -32,6 +32,7 @@ class FourierAnalysis:
     
     def prepare(self):
         self.t = np.linspace(self.t_start,self.t_end,self.fourier_extended_basis_number)
+        self.dt = self.t[1] - self.t[0]
         self.eigenFun = np.empty((self.fourier_basis_number,self.fourier_extended_basis_number),dtype=np.complex128)
         self.cosFun = np.empty((self.fourier_basis_number,self.fourier_extended_basis_number),dtype=np.float64)
         self.sinFun = np.empty((self.fourier_basis_number,self.fourier_extended_basis_number),dtype=np.float64)
