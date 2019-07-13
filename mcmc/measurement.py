@@ -13,7 +13,7 @@ spec = [
     ('t_end', nb.float64),               
     ('t_start', nb.float64),
 ]
-
+@nb.jitclass(spec)
 class Measurement():
     def __init__(self,num_sample,stdev,t_start=0.0,t_end=1.0):
         self.num_sample = num_sample
