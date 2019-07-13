@@ -21,7 +21,7 @@ meas_type = nb.deferred_type()
 meas_type.define(meas.Measurement.class_type.instance_type) 
 
 spec = [
-    ('fft',fourier_type),
+    ('fourier',fourier_type),
     ('random_gen',Rand_gen_type),
     ('pcn',pCN_type),
     # ('LMat',L_matrix_type),
@@ -63,15 +63,19 @@ class Simulation():
         sqrtBeta_v = np.sqrt(beta_v)
         sqrtBeta_u = np.sqrt(beta_u)
         
-        self.fourier = fourier.FourierAnalysis(n,num,t_start,t_end)
-        self.random_gen = randomGenerator.RandomGenerator(self.fourier.fourier_basis_number)
-        LMat = L.Lmatrix(self.fourier,sqrtBeta_v)
+        f =  fourier.FourierAnalysis(n,num,t_start,t_end)
+        self.fourier = f
+        
+        rg = randomGenerator.RandomGenerator(f.fourier_basis_number)
+        self.random_gen = rg
+        LMat = L.Lmatrix(f,sqrtBeta_v)
 
-        Lu = (1/sqrtBeta_u)*(self.fourier.Dmatrix*kappa**(-nu) - kappa**(2-nu)*self.fourier.Imatrix)
+        LuReal = (1/sqrtBeta_u)*(self.fourier.Dmatrix*kappa**(-nu) - kappa**(2-nu)*self.fourier.Imatrix)
+        Lu = LuReal + 1j*np.zeros(LuReal.shape)
         init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
         uStdev = -1/np.diag(Lu)
         uStdev = uStdev[self.fourier.fourier_basis_number-1:]
-        self.pcn = pCN.pCN(LMat,self.random_gen,uStdev,init_sample,beta=beta)
+        self.pcn = pCN.pCN(LMat,rg,uStdev,init_sample,beta)
         # self.pcn.current_sample = init_sample
         # self.pcn.LMat.construct_from(newSample)
 
@@ -126,14 +130,11 @@ class Simulation():
                 acceptancePercentage = self.accepted_count/(i+1)
                 
                 if acceptancePercentage> 0.5:
-                    self.pcn.beta = np.min(np.array([1.1*self.pcn.beta,1],dtype=np.float64))
-                    # beta = np.min(np.array([1.1*beta,1],dtype=np.float64))
+                    self.pcn.set_beta(np.min(np.array([1.1*self.pcn.beta,1],dtype=np.float64)))
                 elif acceptancePercentage<0.3:
-                    self.pcn.beta = np.max(np.array([0.9*self.pcn.beta,1e-5],dtype=np.float64))
-                    # beta = np.max(np.array([0.9*beta,1e-5],dtype=np.float64))
+                    self.pcn.set_beta( np.max(np.array([0.9*self.pcn.beta,1e-5],dtype=np.float64)))
                 
                 accepted_count_partial = 0
-                self.pcn.betaZ = np.sqrt(1-self.pcn.beta**2)
                 mTime = (i+1)/(self.evaluation_interval)
 
                 with nb.objmode(average_time_intv='float64',start_time_intv='float64'):
@@ -146,7 +147,7 @@ class Simulation():
                     remainingTimeStr = time.strftime("%j-1 day(s),%H:%M:%S", time.gmtime(remainingTime))
                     util.printProgressBar(i, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
 
-        with nb.objmode(totalTime='float64'):
+        with nb.objmode():
             # if printProgress:
             elapsedTimeStr = time.strftime("%j day(s),%H:%M:%S", time.gmtime(time.time()-start_time))
             # print('Complete')
