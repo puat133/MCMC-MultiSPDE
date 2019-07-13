@@ -14,8 +14,8 @@ spec = [
 
 @nb.jitclass(spec)
 class Lmatrix():
-    def __init__(self,fourier,sqrtBeta_v):
-        self.fourier = fourier
+    def __init__(self,f,sqrtBeta_v):
+        self.fourier = f
         self.sqrtBeta_v = sqrtBeta_v
 
         #initialize self.lastComputedL as zero
@@ -25,7 +25,7 @@ class Lmatrix():
     def construct_from(self,uHalf):
         assert uHalf.shape[0] == self.fourier.fourier_basis_number
         Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf,util.kappa_pow_min_nu)
-        Ku_pow_half = self.fourier.constructMatexplicit(uHalf,util.kappa_pow_min_nu)
+        Ku_pow_half = self.fourier.constructMatexplicit(uHalf,util.kappa_pow_half)
         L = ( util.matMulti(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_half)/self.sqrtBeta_v
         
         #set LatestComputedL as L, but dont change currentL
