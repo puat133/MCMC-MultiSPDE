@@ -121,3 +121,11 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     # Print New Line on Complete
     if iteration == total: 
         print()
+
+@njitSerial
+def sigmasLancos(n):
+    """
+    sigma Lancos coefficients for calculating inverse Fourier Transforms
+    """
+    k = np.arange(1,n+1)
+    return np.sin(np.pi*(k/(n+1)))/(np.pi*(k/(n+1)))
