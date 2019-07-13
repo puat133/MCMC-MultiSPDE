@@ -22,7 +22,7 @@ jitSerial = nb.jit(fastmath=FASTMATH,cache=CACHE)
 njitParallel = nb.njit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 jitParallel = nb.jit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 
-# @njit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
+
 @njitParallel
 def inner(u,v):
     sumUV = 0
