@@ -1,42 +1,53 @@
 import matplotlib.pyplot as plt
 # import numba as nb
 import mcmc.util as util
+import numpy as np
 import pathlib
 import seaborn as sns
-def plotResult(simResults,simResultPath,useLaTeX=True,showFigures=True):
-    #unpack simResults
-    vtHalf = simResults.vtHalf
-    vtF = simResults.vtF
-    # ut = simResults['ut']
-    # lU = simResults['lU']
-    vHalfMean = simResults.vHalfMean
-    vHalfStdReal = simResults.vHalfStdReal
-    vHalfStdImag = simResults.vHalfStdImag
-    vtMean = simResults.vtMean
-    vtStd = simResults.vtStd
-    lMean = simResults.lMean
-    lStd = simResults.lStd
-    # cummU = simResults['cummU']
-    indexCumm = simResults.indexCumm
-    cummMeanU = simResults.cummMeanU
-    # uHistory = simResults['uHistory']
-    # vHistory = simResults['vHistory']
+import pathlib
+import datetime
+def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=True,showFigures=False):
+    #unpack sim.sim_result
+    vtHalf = sim.sim_result.vtHalf
+    vtF = sim.sim_result.vtF
+    # ut = sim.sim_result['ut']
+    # lU = sim.sim_result['lU']
+    vHalfMean = sim.sim_result.vHalfMean
+    vHalfStdReal = sim.sim_result.vHalfStdReal
+    vHalfStdImag = sim.sim_result.vHalfStdImag
+    vtMean = sim.sim_result.vtMean
+    vtStd = sim.sim_result.vtStd
+    lMean = sim.sim_result.lMean
+    lStd = sim.sim_result.lStd
+    # cummU = sim.sim_result['cummU']
     
+    if np.any(indexCumm==None) or np.any(cummMeanU==None):
+        startIndex = np.int(sim.burn_percentage*sim.n_samples//100)
+        cummU = np.cumsum(sim.u_history[startIndex:,:],axis=0)
+        indexCumm = np.arange(1,len(cummU)+1)
+        cummMeanU = cummU.T/indexCumm
+        cummMeanU = cummMeanU.T
+    # uHistory = sim.sim_result['uHistory']
+    # vHistory = sim.sim_result['vHistory']
+    if simResultPath == None:
+        folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
+        simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+        simResultPath.mkdir()
     
 
 
-    n = simResults.fourier_basis_number
-    numNew = simResults.fourier_extended_basis_number
+    # n = sim.fourier.fourier_basis_number
+    # numNew = sim.fourier.fourier_extended_basis_number
 
-    t = simResults.t
-    tNew = simResults.t
-    sigmas = floatVectParams['sigmas']
-    vt =  floatVectParams['vt']
-    y =  floatVectParams['y']
+    t = sim.measurement.t
+    # tNew = sim.sim_result.t
+    # sigmas = util.sigmasLancos(n)
+    vt =  sim.measurement.vt
+    y =  sim.measurement.yt
 
     sns.set_style("ticks")
     sns.set_context('paper')
-
+ 
     #clear figure
     plt.clf()
     if useLaTeX:
@@ -45,10 +56,10 @@ def plotResult(simResults,simResultPath,useLaTeX=True,showFigures=True):
 
     # plt.ion()
     # plt.figure()
-    plt.plot(tNew,vtMean,'-b',linewidth=0.5)
-    plt.fill_between(tNew,vtMean-2*vtStd,vtMean+2*vtStd, color='b', alpha=0.1)
+    plt.plot(t,vtMean,'-b',linewidth=0.5)
+    plt.fill_between(t,vtMean-2*vtStd,vtMean+2*vtStd, color='b', alpha=0.1)
     plt.plot(t,y,'.k',linewidth=0.5,markersize=1)
-    plt.plot(t,vt,':k',tNew,vtF,'-r',linewidth=0.5,markersize=1)
+    plt.plot(t,vt,':k',t,vtF,'-r',linewidth=0.5,markersize=1)
     plt.ylabel('$v(t)$')
     plt.xlabel('$t$')
     plt.tight_layout()
@@ -60,8 +71,8 @@ def plotResult(simResults,simResultPath,useLaTeX=True,showFigures=True):
     # kIFStd = kappaU.std(axis=1)
 
     plt.figure()
-    plt.semilogy(tNew,lMean,'-b',linewidth=0.5)
-    plt.fill_between(tNew,lMean-2*lStd,lMean+2*lStd, color='b', alpha=.1)
+    plt.semilogy(t,np.flip(lMean),'-b',linewidth=0.5)
+    plt.fill_between(t,np.flip(lMean-2*lStd),np.flip(lMean+2*lStd), color='b', alpha=.1)
     plt.ylabel(r'$\ell(t)$')
     plt.xlabel('$t$')
     plt.tight_layout()
@@ -107,13 +118,8 @@ def plotResult(simResults,simResultPath,useLaTeX=True,showFigures=True):
     plt.xlabel(r'Frequency $2 \pi n$')
     plt.tight_layout()
     plt.savefig(str(simResultPath/'vComponentAbs.pdf'), bbox_inches='tight')
+
+    print("Plotting complete")
     if showFigures:
         plt.show()
 
-def saveResult(simResults,simResultPath):
-    # folderName = 'result - '+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
-    # simulationResultPath = pathlib.Path.home() / 'Documents' / folderName
-    # simulationResultPath.mkdir() 
-    filePath = simResultPath / 'result.hdf5'
-    util.saveToH5(filePath,simResults)
-    # util.saveToMatlab(str(filePath),locals(),do_compression=False)
