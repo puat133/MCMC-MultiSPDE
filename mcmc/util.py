@@ -14,7 +14,7 @@ import time
 import math
 FASTMATH=True
 PARALLEL = False
-CACHE=False
+CACHE=True
 # from numba import complex64, complex128, float32, float64, int32, jit, njit, prange
 SQRT2 = np.sqrt(2)
 njitSerial = nb.njit(fastmath=FASTMATH,cache=CACHE)
@@ -152,34 +152,4 @@ def finalizeWelford(existingAggregate):
     # else:
     return (mean, variance)
 
-def saveToH5(fileName,simResults):
-    mdict = convertSimResultToDict(simResults)
-    with h5py.File(fileName,'w') as f:
-        for key,value in mdict.items():
-            f.create_dataset(key,data=value)
 
-def convertSimResultToDict(simResults):
-    mdict = {}
-    for key,value in simResults.items():
-        #if it is np.ndarray instance
-        if isinstance(value,int) or isinstance(value,float) or isinstance(value,complex):
-            if (not np.isnan(value)) and (not np.isinf(value)):
-                mdict[key] = value
-                continue
-        if isinstance(value,np.ndarray):
-            mdict[key] = value
-            continue
-        #if it is a list but with np.ndarray elements 
-        if isinstance(value,list):
-            if not (value is None):
-                if all(isinstance(i,np.ndarray) for i in value):
-                    if not np.isnan(value).any():
-                        mdict[key] = np.asarray(value)
-
-        #this is for saveing params in Bayesian Numba
-        if key == 'Params':
-            for _,val in value.items():
-                if isinstance(val,nb.typed.typeddict.Dict):
-                    for k,v in val.items():
-                        mdict[k] = v
-    return mdict
