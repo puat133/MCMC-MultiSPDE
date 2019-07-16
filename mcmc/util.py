@@ -129,3 +129,57 @@ def sigmasLancos(n):
     """
     k = np.arange(1,n+1)
     return np.sin(np.pi*(k/(n+1)))/(np.pi*(k/(n+1)))
+
+@njitSerial
+def updateWelford(existingAggregate, newValue):
+    (count, mean, M2) = existingAggregate
+    count += 1 
+    delta = newValue - mean
+    mean += delta / count
+    delta2 = newValue - mean
+    M2 += delta * delta2
+
+    return (count, mean, M2)
+
+# # retrieve the mean, variance and sample variance from an aggregate
+@njitSerial
+def finalizeWelford(existingAggregate):
+    (count, mean, M2) = existingAggregate
+    # (mean, variance, sampleVariance) = (mean, M2/count, M2/(count - 1)) 
+    (mean, variance) = (mean, M2/count) 
+    # if count < 2:
+        # return float('nan')
+    # else:
+    return (mean, variance)
+
+def saveToH5(fileName,simResults):
+    mdict = convertSimResultToDict(simResults)
+    with h5py.File(fileName,'w') as f:
+        for key,value in mdict.items():
+            f.create_dataset(key,data=value)
+
+def convertSimResultToDict(simResults):
+    mdict = {}
+    for key,value in simResults.items():
+        #if it is np.ndarray instance
+        if isinstance(value,int) or isinstance(value,float) or isinstance(value,complex):
+            if (not np.isnan(value)) and (not np.isinf(value)):
+                mdict[key] = value
+                continue
+        if isinstance(value,np.ndarray):
+            mdict[key] = value
+            continue
+        #if it is a list but with np.ndarray elements 
+        if isinstance(value,list):
+            if not (value is None):
+                if all(isinstance(i,np.ndarray) for i in value):
+                    if not np.isnan(value).any():
+                        mdict[key] = np.asarray(value)
+
+        #this is for saveing params in Bayesian Numba
+        if key == 'Params':
+            for _,val in value.items():
+                if isinstance(val,nb.typed.typeddict.Dict):
+                    for k,v in val.items():
+                        mdict[k] = v
+    return mdict

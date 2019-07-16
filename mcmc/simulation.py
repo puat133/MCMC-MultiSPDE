@@ -6,8 +6,10 @@ import mcmc.L as L
 import mcmc.randomGenerator as randomGenerator
 import mcmc.pCN as pCN
 import mcmc.measurement as meas
+import mcmc.simulationResults as simRes
 # import scipy as scp
 import time
+
 
 fourier_type = nb.deferred_type()
 fourier_type.define(fourier.FourierAnalysis.class_type.instance_type) 
@@ -19,7 +21,8 @@ pCN_type = nb.deferred_type()
 pCN_type.define(pCN.pCN.class_type.instance_type)  
 meas_type = nb.deferred_type()
 meas_type.define(meas.Measurement.class_type.instance_type) 
-
+sim_result_type = nb.deferred_type()
+sim_result_type.define(simRes.SimulationResult.class_type.instance_type)
 spec = [
     ('fourier',fourier_type),
     ('random_gen',Rand_gen_type),
@@ -37,6 +40,7 @@ spec = [
     ('H',nb.complex128[:,:]),
     ('u_history',nb.complex128[:,:]),
     ('v_history',nb.complex128[:,:]),
+    ('sim_results',sim_result_type),
 ]
 
 @nb.jitclass(spec)
@@ -82,11 +86,7 @@ class Simulation():
         meas_std = 0.1
         self.measurement = meas.Measurement(num,meas_std,t_start,t_end)
         self.H = self.measurement.get_measurement_matrix(self.fourier.fourier_basis_number)/meas_std #<-- Normalized
-        self.yBar = np.concatenate((self.measurement.yt/meas_std,np.zeros(2*self.fourier.fourier_basis_number-1)))#<-- Normalized
-
-        
-
-    
+        self.yBar = np.concatenate((self.measurement.yt/meas_std,np.zeros(2*self.fourier.fourier_basis_number-1)))#<-- Normalized      
     
     def run(self):
         self.u_history = np.empty((self.n_samples, self.fourier.fourier_basis_number), dtype=np.complex128)
@@ -156,3 +156,72 @@ class Simulation():
 
         
         # acceptancePercentage = acceptedProposalTotal/nSim
+
+    def analyze(self):
+        startIndex = self.burn_percentage*self.n_samples//100
+        
+        # vtEs = np.empty((self.measurement.t.shape[0],len(vHistoryBurned)))
+        # ut = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
+        # lU = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
+
+        vtM = np.zeros(self.measurement.t.shape,dtype=np.float64)
+        vtM2 = np.zeros(self.measurement.t.shape,dtype=np.float64)
+        vtCount = 0
+        vtAggregateNow = (vtCount,vtM,vtM2) 
+
+        luM = np.zeros(self.measurement.t.shape,dtype=np.float64)
+        luM2 = np.zeros(self.measurement.t.shape,dtype=np.float64)
+        luCount = 0
+        luAggregateNow = (luCount,luM,luM2)
+
+        vHalfM = np.zeros(self.fourier.fourier_basis_number,dtype=np.complex128)
+        vHalfM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.complex128)
+        vHalfCount = 0
+        vHalfAggregateNow = (vHalfCount,vHalfM,vHalfM2)
+
+        sigmas = util.sigmasLancos(self.fourier.fourier_basis_number)
+
+        vtHalf = self.fourier.fourierTransformHalf(self.measurement.vt)
+        vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
+        for i in range(startIndex,self.n_samples):
+            utNow = self.fourier.inverseFourierLimited(self.u_history[i,:]*sigmas)
+            # lUNow = 1/np.flip(util.kappaFun(utNow))#<-  ini aneh ni kenapa harus di flip!!!
+            lUNow = 1/util.kappaFun(utNow)#<-  ini aneh ni kenapa harus di flip!!!
+            vtEsNow = self.fourier.inverseFourierLimited(self.v_history[i,:]*sigmas)
+            luAggregateNow = util.updateWelford(luAggregateNow,lUNow)
+            vtAggregateNow = util.updateWelford(vtAggregateNow,vtEsNow)
+            vHalfAggregateNow = util.updateWelford(vHalfAggregateNow,self.v_history[i,:])
+
+        # for i in range(len(vHistoryBurned)):
+        # utMean, variance, sampleVariance = util.finalizeWelford(utAggregateNow)
+        vtMean = vtAggregateNow[1]
+        vtVar = vtAggregateNow[2]/vtAggregateNow[0]
+
+        lMean = luAggregateNow[1]
+        lVar = luAggregateNow[2]/luAggregateNow[0]
+
+        vHalfMean = vHalfAggregateNow[1]
+        vHalfVarReal = vHalfAggregateNow[2].real/vHalfAggregateNow[0]
+        vHalfVarImag = vHalfAggregateNow[2].imag/vHalfAggregateNow[0]
+
+        
+
+        # vtMean = vtEs.mean(axis=1)
+        # vtVar = vtEs.var(axis=1)
+        
+        # lMean = lU.mean(axis=1)
+        # lVar = lU.var(axis=1)
+
+        # cummU = np.cumsum(self.u_history[startIndex:,:])
+        # indexCumm = np.arange(1,len(cummU)+1)
+        # cummMeanU = cummU.T/indexCumm
+        # cummMeanU = cummMeanU.T
+
+        sim_result = simRes.SimulationResult(vtHalf,vtF,vHalfMean,np.sqrt(vHalfVarReal),np.sqrt(vHalfVarImag),lMean,np.sqrt(lVar),vtMean,np.sqrt(vtVar))
+        self.sim_result = sim_result
+
+
+
+
+
+
