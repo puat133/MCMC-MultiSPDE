@@ -27,6 +27,7 @@ spec = [
     ('fourier',fourier_type),
     ('random_gen',Rand_gen_type),
     ('pcn',pCN_type),
+    ('sim_result',sim_result_type),
     # ('LMat',L_matrix_type),
     ('measurement',meas_type),
     ('n_samples',nb.int64),
@@ -40,13 +41,14 @@ spec = [
     ('H',nb.complex128[:,:]),
     ('u_history',nb.complex128[:,:]),
     ('v_history',nb.complex128[:,:]),
-    ('sim_results',sim_result_type),
+    ('printProgress',nb.boolean),
+    
 ]
 
 @nb.jitclass(spec)
 class Simulation():
     def __init__(self,n_samples = 1000,n = 2**6,beta = 2e-1,num = 2**8,
-                    kappa = 1e17,sigma_u = 5e6,sigma_v = 10,evaluation_interval = 100,
+                    kappa = 1e17,sigma_u = 5e6,sigma_v = 10,evaluation_interval = 100,printProgress=False,
                     seed=1,burn_percentage = 5.0):
         self.n_samples = n_samples
         self.meas_samples_num = num
@@ -54,6 +56,7 @@ class Simulation():
         self.burn_percentage = burn_percentage
         #set random seed
         self.random_seed = seed
+        self.printProgress = printProgress
         np.random.seed(self.random_seed)
         
         #setup parameters for 1 Dimensional simulation
@@ -86,7 +89,11 @@ class Simulation():
         meas_std = 0.1
         self.measurement = meas.Measurement(num,meas_std,t_start,t_end)
         self.H = self.measurement.get_measurement_matrix(self.fourier.fourier_basis_number)/meas_std #<-- Normalized
-        self.yBar = np.concatenate((self.measurement.yt/meas_std,np.zeros(2*self.fourier.fourier_basis_number-1)))#<-- Normalized      
+        self.yBar = np.concatenate((self.measurement.yt/meas_std,np.zeros(2*self.fourier.fourier_basis_number-1)))#<-- Normalized 
+        #initializing is important
+        sim_result = simRes.SimulationResult(np.array([0.0+1j*1.0,1.0+1j*0.0]),np.array([1.0,1.0]),np.array([0.0+1j*1.0,1.0+1j*0.0]),np.array([1.0,1.0]),np.array([1.0,1.0]),np.array([1.0,1.0]),np.array([1.0,1.0]),np.array([1.0,
+        1.0]),np.array([1.0,1.0]))     
+        self.sim_result = sim_result
     
     def run(self):
         self.u_history = np.empty((self.n_samples, self.fourier.fourier_basis_number), dtype=np.complex128)
@@ -94,8 +101,8 @@ class Simulation():
         self.accepted_count = 0
         average_time_intv =0.0
         with nb.objmode(start_time='float64',start_time_intv='float64'):
-            # if printProgress:
-            util.printProgressBar(0, self.n_samples, prefix = 'Preparation . . . . ', suffix = 'Complete', length = 50)
+            if self.printProgress:
+                util.printProgressBar(0, self.n_samples, prefix = 'Preparation . . . . ', suffix = 'Complete', length = 50)
             start_time = time.time()
             start_time_intv = start_time
         print('preparation . . . ')
@@ -138,21 +145,24 @@ class Simulation():
                 mTime = (i+1)/(self.evaluation_interval)
 
                 with nb.objmode(average_time_intv='float64',start_time_intv='float64'):
-                    # if printProgress:
+                
                     end_time_intv = time.time()
                     time_intv = end_time_intv-start_time_intv
                     average_time_intv +=  (time_intv-average_time_intv)/mTime
                     start_time_intv = end_time_intv
                     remainingTime = average_time_intv*((self.n_samples - i)/self.evaluation_interval)
                     remainingTimeStr = time.strftime("%j-1 day(s),%H:%M:%S", time.gmtime(remainingTime))
-                    util.printProgressBar(i, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
+                    if self.printProgress:
+                        util.printProgressBar(i, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
 
         with nb.objmode():
-            # if printProgress:
+            
             elapsedTimeStr = time.strftime("%j day(s),%H:%M:%S", time.gmtime(time.time()-start_time))
-            # print('Complete')
-            util.printProgressBar(self.n_samples, self.n_samples, 'Iteration Completed in {0}- Acceptance Rate {1:.2%} - Progress:'.format(elapsedTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
             self.total_time = time.time()-start_time
+            # print('Complete')
+            if self.printProgress:
+                util.printProgressBar(self.n_samples, self.n_samples, 'Iteration Completed in {0}- Acceptance Rate {1:.2%} - Progress:'.format(elapsedTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
+            
 
         
         # acceptancePercentage = acceptedProposalTotal/nSim
@@ -174,14 +184,19 @@ class Simulation():
         luCount = 0
         luAggregateNow = (luCount,luM,luM2)
 
-        vHalfM = np.zeros(self.fourier.fourier_basis_number,dtype=np.complex128)
-        vHalfM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.complex128)
-        vHalfCount = 0
-        vHalfAggregateNow = (vHalfCount,vHalfM,vHalfM2)
+        vHalfRealM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+        vHalfRealM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+        vHalfRealCount = 0
+        vHalfRealAggregateNow = (vHalfRealCount,vHalfRealM,vHalfRealM2)
+
+        vHalfImagM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+        vHalfImagM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+        vHalfImagCount = 0
+        vHalfImagAggregateNow = (vHalfImagCount,vHalfImagM,vHalfImagM2)
 
         sigmas = util.sigmasLancos(self.fourier.fourier_basis_number)
 
-        vtHalf = self.fourier.fourierTransformHalf(self.measurement.vt)
+        vtHalf = self.fourier.fourierTransformHalf(self.measurement.vt)*self.fourier.dt
         vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
         for i in range(startIndex,self.n_samples):
             utNow = self.fourier.inverseFourierLimited(self.u_history[i,:]*sigmas)
@@ -190,7 +205,8 @@ class Simulation():
             vtEsNow = self.fourier.inverseFourierLimited(self.v_history[i,:]*sigmas)
             luAggregateNow = util.updateWelford(luAggregateNow,lUNow)
             vtAggregateNow = util.updateWelford(vtAggregateNow,vtEsNow)
-            vHalfAggregateNow = util.updateWelford(vHalfAggregateNow,self.v_history[i,:])
+            vHalfRealAggregateNow = util.updateWelford(vHalfRealAggregateNow,self.v_history[i,:].real)
+            vHalfImagAggregateNow = util.updateWelford(vHalfImagAggregateNow,self.v_history[i,:].imag)
 
         # for i in range(len(vHistoryBurned)):
         # utMean, variance, sampleVariance = util.finalizeWelford(utAggregateNow)
@@ -200,11 +216,11 @@ class Simulation():
         lMean = luAggregateNow[1]
         lVar = luAggregateNow[2]/luAggregateNow[0]
 
-        vHalfMean = vHalfAggregateNow[1]
-        vHalfVarReal = vHalfAggregateNow[2].real/vHalfAggregateNow[0]
-        vHalfVarImag = vHalfAggregateNow[2].imag/vHalfAggregateNow[0]
+        vHalfMean = vHalfRealAggregateNow[1]+1j*vHalfImagAggregateNow[1]
+        vHalfVarReal = vHalfRealAggregateNow[2]/vHalfRealAggregateNow[0]
+        vHalfVarImag = vHalfImagAggregateNow[2]/vHalfImagAggregateNow[0]
 
-        
+
 
         # vtMean = vtEs.mean(axis=1)
         # vtVar = vtEs.var(axis=1)
