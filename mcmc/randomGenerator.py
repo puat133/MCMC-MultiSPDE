@@ -26,6 +26,11 @@ class RandomGenerator:
         return wHalf/self.sqrt2
 
     def construct_w(self):
-        wHalf = self.construct_w_half()
-        w = np.concatenate((wHalf[:0:-1].conj(),wHalf)) #symmetrize
+        w_half = self.construct_w_half()
+        w = self.symmetrize(w_half) #symmetrize
         return w
+    
+    def symmetrize(self,w_half):
+        w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
+        return w
+

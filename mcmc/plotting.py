@@ -23,7 +23,7 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     
     if np.any(indexCumm==None) or np.any(cummMeanU==None):
         startIndex = np.int(sim.burn_percentage*sim.n_samples//100)
-        cummU = np.cumsum(sim.u_history[startIndex:,:],axis=0)
+        cummU = np.cumsum(sim.Layers[0].samples_history[startIndex:,:],axis=0)
         indexCumm = np.arange(1,len(cummU)+1)
         cummMeanU = cummU.T/indexCumm
         cummMeanU = cummMeanU.T
@@ -39,11 +39,11 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     # n = sim.fourier.fourier_basis_number
     # numNew = sim.fourier.fourier_extended_basis_number
 
-    t = sim.measurement.t
+    t = sim.pcn.measurement.t
     # tNew = sim.sim_result.t
     # sigmas = util.sigmasLancos(n)
-    vt =  sim.measurement.vt
-    y =  sim.measurement.yt
+    vt =  sim.pcn.measurement.vt
+    y =  sim.pcn.measurement.yt
 
     sns.set_style("ticks")
     sns.set_context('paper')
