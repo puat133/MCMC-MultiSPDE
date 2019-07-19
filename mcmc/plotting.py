@@ -23,7 +23,7 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     
     if np.any(indexCumm==None) or np.any(cummMeanU==None):
         startIndex = np.int(sim.burn_percentage*sim.n_samples//100)
-        cummU = np.cumsum(sim.Layers[0].samples_history[startIndex:,:],axis=0)
+        cummU = np.cumsum(sim.Layers[-2].samples_history[startIndex:,:],axis=0)
         indexCumm = np.arange(1,len(cummU)+1)
         cummMeanU = cummU.T/indexCumm
         cummMeanU = cummMeanU.T
@@ -71,8 +71,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     # kIFStd = kappaU.std(axis=1)
 
     plt.figure()
-    plt.semilogy(t,np.flip(lMean),'-b',linewidth=0.5)
-    plt.fill_between(t,np.flip(lMean-2*lStd),np.flip(lMean+2*lStd), color='b', alpha=.1)
+    plt.semilogy(t,lMean,'-b',linewidth=0.5)
+    plt.fill_between(t,lMean-2*lStd,lMean+2*lStd, color='b', alpha=.1)
     plt.ylabel(r'$\ell(t)$')
     plt.xlabel('$t$')
     plt.tight_layout()

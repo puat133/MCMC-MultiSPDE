@@ -51,7 +51,7 @@ import time
 
 # @nb.jitclass(spec)
 class Simulation():
-    def __init__(self,n_samples = 1000,n = 2**6,beta = 2e-3,num = 2**8,
+    def __init__(self,n_layers=2,n_samples = 1000,n = 2**6,beta = 2e-3,num = 2**8,
                     kappa = 1e17,sigma_u = 5e6,sigma_v = 10,evaluation_interval = 100,printProgress=True,
                     seed=1,burn_percentage = 5.0):
         self.n_samples = n_samples
@@ -61,8 +61,9 @@ class Simulation():
         #set random seed
         self.random_seed = seed
         self.printProgress = printProgress
+        self.n_layers=n_layers
         np.random.seed(self.random_seed)
-        n_layers = 3
+        
         
         #setup parameters for 1 Dimensional simulation
         d = 1
@@ -87,26 +88,43 @@ class Simulation():
         
         uStdev = -1/np.diag(Lu)
         uStdev = uStdev[self.fourier.fourier_basis_number-1:]
-        # uStdev[0] /= 2 #scaled
+        uStdev[0] /= 2 #scaled
 
         meas_std = 0.1
         measurement = meas.Measurement(num,meas_std,t_start,t_end)
         pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
         self.pcn = pcn
 
-        init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
-        layer_u = layer.Layer(True,sqrtBeta_u,0,self.n_samples,self.pcn,init_sample)
-        layer_u.stdev = uStdev
-        layer_u.current_sample_scaled_norm = util.norm2(layer_u.current_sample/layer_u.stdev)#ToDO: Modify this
-        layer_u.new_sample_scaled_norm = layer_u.current_sample_scaled_norm
+        
+        #initialize Layers
+        # n_layers = 2
+        Layers = []
+        for i in range(self.n_layers):
+            if i==0:
+                init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
+                lay = layer.Layer(True,sqrtBeta_u,0,self.n_samples,self.pcn,init_sample)
+                lay.stdev = uStdev
+                lay.current_sample_scaled_norm = util.norm2(lay.current_sample/lay.stdev)#ToDO: Modify this
+                lay.new_sample_scaled_norm = lay.current_sample_scaled_norm
+            else:
+                lay = layer.Layer(False,sqrtBeta_v,1,self.n_samples,self.pcn,Layers[i-1].current_sample)
+                if i == n_layers-1:
+                    # layer_v = layer.Layer(False,sqrtBeta_v,2,self.n_samples,self.pcn,layer_m.current_sample)
+                    wNew = self.pcn.random_gen.construct_w()
+                    eNew = np.random.randn(self.pcn.measurement.num_sample)
+                    wBar = np.concatenate((eNew,wNew))
+                    
+                    LBar = np.vstack((self.pcn.H,lay.LMat.current_L))
+
+                    #update v
+                    lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar )#,rcond=None)
+                    lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
+
+            Layers.append(lay)
+                
 
 
-        layer_m = layer.Layer(False,sqrtBeta_v,1,self.n_samples,self.pcn,layer_u.current_sample)
-        #TODO: change init sample
-        # layer_v = layer.Layer(False,sqrtBeta_v,1,self.n_samples,self.pcn,layer_u.current_sample)
-        layer_v = layer.Layer(False,sqrtBeta_v,2,self.n_samples,self.pcn,layer_u.current_sample)
-        # Layers = [layer_u,layer_v]
-        Layers = [layer_u,layer_m,layer_v]
+
         self.Layers = Layers
         # self.pcn.current_sample = init_sample
         # self.pcn.LMat.construct_from(newSample)
@@ -159,7 +177,7 @@ class Simulation():
                     remainingTime = average_time_intv*((self.n_samples - i)/self.evaluation_interval)
                     remainingTimeStr = time.strftime("%j-1 day(s),%H:%M:%S", time.gmtime(remainingTime))
                     if self.printProgress:
-                        util.printProgressBar(i, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
+                        util.printProgressBar(i+1, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
 
         with nb.objmode():
             
@@ -202,14 +220,14 @@ class Simulation():
         vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)*self.fourier.dt
         vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
         for i in range(startIndex,self.n_samples):
-            utNow = self.fourier.inverseFourierLimited(self.Layers[0].samples_history[i,:]*sigmas)
+            utNow = self.fourier.inverseFourierLimited(self.Layers[-2].samples_history[i,:]*sigmas)
             # lUNow = 1/np.flip(util.kappaFun(utNow))#<-  ini aneh ni kenapa harus di flip!!!
             lUNow = 1/util.kappaFun(utNow)#<-  ini aneh ni kenapa harus di flip!!!
-            vtEsNow = self.fourier.inverseFourierLimited(self.Layers[1].samples_history[i,:]*sigmas)
+            vtEsNow = self.fourier.inverseFourierLimited(self.Layers[-1].samples_history[i,:]*sigmas)
             luAggregateNow = util.updateWelford(luAggregateNow,lUNow)
             vtAggregateNow = util.updateWelford(vtAggregateNow,vtEsNow)
-            vHalfRealAggregateNow = util.updateWelford(vHalfRealAggregateNow,self.Layers[1].samples_history[i,:].real)
-            vHalfImagAggregateNow = util.updateWelford(vHalfImagAggregateNow,self.Layers[1].samples_history[i,:].imag)
+            vHalfRealAggregateNow = util.updateWelford(vHalfRealAggregateNow,self.Layers[-1].samples_history[i,:].real)
+            vHalfImagAggregateNow = util.updateWelford(vHalfImagAggregateNow,self.Layers[-1].samples_history[i,:].imag)
 
         # for i in range(len(vHistoryBurned)):
         # utMean, variance, sampleVariance = util.finalizeWelford(utAggregateNow)

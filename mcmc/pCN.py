@@ -37,6 +37,7 @@ class pCN():
         self.fourier = f
         self.H = self.measurement.get_measurement_matrix(self.fourier.fourier_basis_number)/self.measurement.stdev
         self.yBar = np.concatenate((self.measurement.yt/self.measurement.stdev,np.zeros(2*self.fourier.fourier_basis_number-1)))
+        self.gibbs_step = 0
         
 
 
@@ -56,6 +57,7 @@ class pCN():
     def oneStep(self,Layers):
         logRatio = 0.0
         for i in range(self.n_layers):
+        # i = int(self.gibbs_step//len(Layers))
             
             Layers[i].sample()
             # new_sample = Layers[i].new_sample
@@ -71,16 +73,17 @@ class pCN():
                 Layers[i].new_sample_scaled_norm = 0.5*util.norm2(Layers[i].new_sample/Layers[i].stdev)
                 #TODO: Check whether 0.5 factor should be added below
                 logRatio += (Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
-        
+            
         if logRatio>np.log(np.random.rand()):
             for i in range(self.n_layers):
                 Layers[i].update_current_sample()
-                if not Layers[i].is_static:
+                if not Layers[i].is_stationary:
                     Layers[i].LMat.set_current_L_to_latest()
                 
             accepted = 1
         else:
             accepted=0
+        # self.gibbs_step +=1
         
         for i in range(self.n_layers):
             Layers[i].record_sample()
