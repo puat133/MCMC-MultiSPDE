@@ -38,6 +38,7 @@ class pCN():
         self.H = self.measurement.get_measurement_matrix(self.fourier.fourier_basis_number)/self.measurement.stdev
         self.yBar = np.concatenate((self.measurement.yt/self.measurement.stdev,np.zeros(2*self.fourier.fourier_basis_number-1)))
         self.gibbs_step = 0
+        self.aggresiveness = 0.2
         
 
 
@@ -48,7 +49,11 @@ class pCN():
         
     #     return logRatio
 
+    def more_aggresive(self):
+        self.set_beta(np.min(np.array([(1+self.aggresiveness)*self.beta,1],dtype=np.float64)))
     
+    def less_aggresive(self):
+        self.set_beta(np.min(np.array([(1-self.aggresiveness)*self.beta,1e-12],dtype=np.float64)))
 
     def set_beta(self,newBeta):
         self.beta = newBeta
@@ -70,9 +75,9 @@ class pCN():
                 logRatio += 0.5*(Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
                 logRatio += (Layers[i].new_log_L_det-Layers[i].current_log_L_det)
             else:
-                Layers[i].new_sample_scaled_norm = 0.5*util.norm2(Layers[i].new_sample/Layers[i].stdev)
                 #TODO: Check whether 0.5 factor should be added below
-                logRatio += (Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
+                Layers[i].new_sample_scaled_norm = util.norm2(Layers[i].new_sample/Layers[i].stdev)
+                logRatio += 0.5*(Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
             
         if logRatio>np.log(np.random.rand()):
             for i in range(self.n_layers):
