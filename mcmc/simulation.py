@@ -161,9 +161,9 @@ class Simulation():
                 acceptancePercentage = self.accepted_count/(i+1)
                 
                 if acceptancePercentage> 0.5:
-                    self.pcn.set_beta(np.min(np.array([1.1*self.pcn.beta,1],dtype=np.float64)))
+                    self.pcn.more_aggresive()
                 elif acceptancePercentage<0.3:
-                    self.pcn.set_beta( np.max(np.array([0.9*self.pcn.beta,1e-5],dtype=np.float64)))
+                    self.pcn.less_aggresive()
                 
                 accepted_count_partial = 0
                 mTime = (i+1)/(self.evaluation_interval)
@@ -217,7 +217,7 @@ class Simulation():
 
         sigmas = util.sigmasLancos(self.fourier.fourier_basis_number)
 
-        vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)*self.fourier.dt
+        vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)
         vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
         for i in range(startIndex,self.n_samples):
             utNow = self.fourier.inverseFourierLimited(self.Layers[-2].samples_history[i,:]*sigmas)
