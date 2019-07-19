@@ -60,7 +60,7 @@ class FourierAnalysis:
         for i in range(self.eigenFun.shape[0]):
             # uHalf[i] = inner(ut,eigenFun[i,:])*dt
             uHalf[i] = util.inner(ut,self.eigenFun[i,:])
-        return uHalf
+        return uHalf*self.dt
 
     def constructU(self,uHalf):
         """
@@ -79,16 +79,16 @@ class FourierAnalysis:
         # U = U.astype(complex)
         for i in nb.prange(2*self.fourier_basis_number-1):
             for j in nb.prange(2*self.fourier_basis_number-1):
-                index = (j-i)
+                index = i-j #(j-i)
                 if 0<= index <self.fourier_basis_number :
                     U[i,j] = uHalf[index]
                     continue
-                if 0<= -index < self.fourier_basis_number:
+                if 0< -index < self.fourier_basis_number:
                     U[i,j] = uHalf[-index].conjugate()
-                    continue
+                    # continue
         return U
     
     def constructMatexplicit(self,uHalf,fun):
         temp = fun(self.inverseFourierLimited(uHalf))
-        temp2 = self.fourierTransformHalf(temp)*self.dt
+        temp2 = self.fourierTransformHalf(temp)
         return self.constructU(temp2)
