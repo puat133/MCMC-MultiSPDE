@@ -99,6 +99,7 @@ class Simulation():
         #initialize Layers
         # n_layers = 2
         Layers = []
+        factor = 1e-4
         for i in range(self.n_layers):
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
@@ -107,9 +108,10 @@ class Simulation():
                 lay.current_sample_scaled_norm = util.norm2(lay.current_sample/lay.stdev)#ToDO: Modify this
                 lay.new_sample_scaled_norm = lay.current_sample_scaled_norm
             else:
-                lay = layer.Layer(False,sqrtBeta_v,1,self.n_samples,self.pcn,Layers[i-1].current_sample)
+                
                 if i == n_layers-1:
-                    # layer_v = layer.Layer(False,sqrtBeta_v,2,self.n_samples,self.pcn,layer_m.current_sample)
+                    
+                    lay = layer.Layer(False,sqrtBeta_v,sigma_v,self.n_samples,self.pcn,Layers[i-1].current_sample)
                     wNew = self.pcn.random_gen.construct_w()
                     eNew = np.random.randn(self.pcn.measurement.num_sample)
                     wBar = np.concatenate((eNew,wNew))
@@ -119,7 +121,9 @@ class Simulation():
                     #update v
                     lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar )#,rcond=None)
                     lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
-
+                else:
+                    lay = layer.Layer(False,sqrtBeta_v*np.sqrt(factor),sigma_v*factor,self.n_samples,self.pcn,Layers[i-1].current_sample)
+            lay.update_current_sample()
             Layers.append(lay)
                 
 
@@ -160,10 +164,11 @@ class Simulation():
                 self.accepted_count += accepted_count_partial
                 acceptancePercentage = self.accepted_count/(i+1)
                 
-                if acceptancePercentage> 0.5:
-                    self.pcn.more_aggresive()
-                elif acceptancePercentage<0.3:
-                    self.pcn.less_aggresive()
+                # if acceptancePercentage> 0.5:
+                #     self.pcn.more_aggresive()
+                # elif acceptancePercentage<0.3:
+                #     self.pcn.less_aggresive()
+                self.pcn.adapt_beta(acceptancePercentage)
                 
                 accepted_count_partial = 0
                 mTime = (i+1)/(self.evaluation_interval)
