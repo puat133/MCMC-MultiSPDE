@@ -119,7 +119,7 @@ class Simulation():
                     LBar = np.vstack((self.pcn.H,lay.LMat.current_L))
 
                     #update v
-                    lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar )#,rcond=None)
+                    lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
                     lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
                 else:
                     lay = layer.Layer(False,sqrtBeta_v*np.sqrt(factor),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
