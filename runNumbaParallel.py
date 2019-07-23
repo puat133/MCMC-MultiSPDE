@@ -30,8 +30,8 @@ def runSimulations(n_samples = 1000,n = 2**6,beta = 2e-1,num = 2**8,uHalfInit=No
 
         
     if rank==0:
-        yt = sim.measurement.yt
-        yBar = sim.yBar
+        yt = sim.pcn.measurement.yt
+        yBar = sim.pcn.yBar
     else:
         n = sim.fourier.fourier_basis_number
         m = sim.meas_samples_num
@@ -44,8 +44,8 @@ def runSimulations(n_samples = 1000,n = 2**6,beta = 2e-1,num = 2**8,uHalfInit=No
     comm.Bcast([yBar,MPI.DOUBLE],root=0)
 
     if rank != 0:
-        sim.yBar = yBar
-        sim.measurement.yt = yt
+        sim.pcn.yBar = yBar
+        sim.pcn.measurement.yt = yt
 
     print('Rank {0:d} prepared for MCMC running'.format(rank))
     sys.stdout.flush()
@@ -95,7 +95,7 @@ def runSimulations(n_samples = 1000,n = 2**6,beta = 2e-1,num = 2**8,uHalfInit=No
     lMeanAll = None
 
     startIndex = np.int(sim.burn_percentage*sim.n_samples//100)
-    cummU = np.cumsum(sim.u_history[startIndex:,:],axis=0)
+    cummU = np.cumsum(sim.Layers[0].samples_history[startIndex:,:],axis=0)
 
     # #set buffer
     if rank==0:
@@ -181,39 +181,25 @@ def runSimulations(n_samples = 1000,n = 2**6,beta = 2e-1,num = 2**8,uHalfInit=No
     comm.Reduce([lVarCorrection,MPI.DOUBLE],lVarSumCorr,MPI.SUM,root=0)
     
     if rank==0:
-        print('Final Analysis Completed at Rank 0')
-        sys.stdout.flush()
-        vHalfStdReal = np.sqrt((vHalfVarRealSum+vHalfVarRealSumCorr)/size)
-        vHalfStdImag = np.sqrt((vHalfVarImagSum+vHalfVarImagSumCorr)/size)
-        vtStd = np.sqrt((vtVarSum+vtVarSumCorr)/size)
-        lStd = np.sqrt((lVarSum+lVarSumCorr)/size)
-        sim_result0 = sr.SimulationResult(sim.sim_result.vtHalf,sim.sim_result.vtF,vHalfMeanAll,vHalfStdReal,vHalfStdImag,lMeanAll,lStd,vtMeanAll,vtStd)
-        
-
-    try:
-    #do saving and plotting on thread 0
-        if rank == 0:
-        # print('Saving Result at Rank 0')
-        # sys.stdout.flush()
-
-        # folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
-        # simResultPath = pathlib.Path.home() / 'Documents'/ 'SimulationResult' / folderName
-        # simResultPath.mkdir() 
-        # prep.saveResult(simResultsTotal,simResultPath)
-        
+        try:
+            print('Final Analysis Completed at Rank 0')
+            sys.stdout.flush()
+            vHalfStdReal = np.sqrt((vHalfVarRealSum+vHalfVarRealSumCorr)/size)
+            vHalfStdImag = np.sqrt((vHalfVarImagSum+vHalfVarImagSumCorr)/size)
+            vtStd = np.sqrt((vtVarSum+vtVarSumCorr)/size)
+            lStd = np.sqrt((lVarSum+lVarSumCorr)/size)
+            sim_result0 = sr.SimulationResult(sim.sim_result.vtHalf,sim.sim_result.vtF,vHalfMeanAll,vHalfStdReal,vHalfStdImag,lMeanAll,lStd,vtMeanAll,vtStd)
             print('Plotting Result at Rank 0')
             sys.stdout.flush()
             sim.sim_result = sim_result0
             p.plotResult(sim,indexCumm=indexCumm,cummMeanU=cummMeanU,showFigures=False)
             print('Plotting Completed Rank 0: Enjoy your day')
             sys.stdout.flush()
-        
-        
-    except Exception:
-        print('Ups...')
-        sys.stdout.flush()
-    finally:
-        comm.Disconnect()
+        except Exception:
+            print('Ups...')
+            sys.stdout.flush()
+        finally:
+            comm.Disconnect()
         
 
     
