@@ -42,7 +42,7 @@ class pCN():
         self.yBar = np.concatenate((self.measurement.yt/self.measurement.stdev,np.zeros(2*self.fourier.fourier_basis_number-1)))
         self.gibbs_step = 0
         self.aggresiveness = 0.2
-        self.target_acceptance_rate = 0.4
+        self.target_acceptance_rate = 0.234
         self.beta_feedback_gain = 2.1
         
 
