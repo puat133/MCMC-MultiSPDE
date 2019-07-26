@@ -8,28 +8,28 @@ import mcmc.measurement as meas
 
 
 
-# Rand_gen_type = nb.deferred_type()
-# Rand_gen_type.define(randomGenerator.RandomGenerator.class_type.instance_type)
-# meas_type = nb.deferred_type()
-# meas_type.define(meas.Measurement.class_type.instance_type)
-# fourier_type = nb.deferred_type()
-# fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)    
-# spec = [
-#     ('n_layers',nb.int64),
-#     ('beta',nb.float64),
-#     ('betaZ',nb.float64),
-#     ('random_gen',Rand_gen_type),
-#     ('measurement',meas_type),
-#     ('fourier',fourier_type),
-#     ('H',nb.complex128[:,:]),
-#     ('yBar',nb.float64[:]),
-#     ('gibbs_step',nb.int64),
-#     ('aggresiveness',nb.float64),
-#     ('target_acceptance_rate',nb.float64),
-#     ('beta_feedback_gain',nb.float64),
-# ]
+Rand_gen_type = nb.deferred_type()
+Rand_gen_type.define(randomGenerator.RandomGenerator.class_type.instance_type)
+meas_type = nb.deferred_type()
+meas_type.define(meas.Measurement.class_type.instance_type)
+fourier_type = nb.deferred_type()
+fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)    
+spec = [
+    ('n_layers',nb.int64),
+    ('beta',nb.float64),
+    ('betaZ',nb.float64),
+    ('random_gen',Rand_gen_type),
+    ('measurement',meas_type),
+    ('fourier',fourier_type),
+    ('H',nb.complex128[:,:]),
+    ('yBar',nb.float64[:]),
+    ('gibbs_step',nb.int64),
+    ('aggresiveness',nb.float64),
+    ('target_acceptance_rate',nb.float64),
+    ('beta_feedback_gain',nb.float64),
+]
 
-# @nb.jitclass(spec)
+@nb.jitclass(spec)
 class pCN():
     def __init__(self,n_layers,rg,measurement,f,beta=1):
         self.n_layers = n_layers
@@ -122,8 +122,9 @@ class pCN():
                 logRatio += (Layers[i].new_log_L_det-Layers[i].current_log_L_det)
             else:
                 #TODO: Check whether 0.5 factor should be added below
-                Layers[i].new_sample_scaled_norm = util.norm2(Layers[i].new_sample/Layers[i].stdev)
-                logRatio += (Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
+                # Layers[i].new_sample_scaled_norm = util.norm2(Layers[i].new_sample/Layers[i].stdev)
+                # logRatio += (Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
+                logRatio += np.abs((Layers[i].new_sample[element_index]-Layers[i].current_sample[element_index])/Layers[i].stdev[element_index].real)**2
             
         if logRatio>np.log(np.random.rand()):
             for i in range(self.n_layers):
