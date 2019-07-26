@@ -99,7 +99,7 @@ class Simulation():
         #initialize Layers
         # n_layers = 2
         Layers = []
-        factor = 1e0
+        factor = 1e-8
         for i in range(self.n_layers):
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
@@ -164,7 +164,7 @@ class Simulation():
         for i in range(self.n_samples):#nb.prange(nSim):
             accepted_count_partial += self.pcn.oneStep(self.Layers)
             # for j in range(self.fourier.fourier_basis_number):
-            #     accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
+                # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
             if (i+1)%(self.evaluation_interval) == 0:
                 self.accepted_count += accepted_count_partial
                 acceptancePercentage = self.accepted_count/(i+1)
