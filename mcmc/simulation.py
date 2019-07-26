@@ -52,7 +52,7 @@ import time
 # @nb.jitclass(spec)
 class Simulation():
     def __init__(self,n_layers=2,n_samples = 1000,n = 2**6,beta = 2e-3,num = 2**8,
-                    kappa = 1e17,sigma_u = 5e6,sigma_v = 10,evaluation_interval = 100,printProgress=True,
+                    kappa = 1e17,sigma_0 = 5e6,sigma_v = 10,sigma_scaling= 1e-8,evaluation_interval = 100,printProgress=True,
                     seed=1,burn_percentage = 5.0):
         self.n_samples = n_samples
         self.meas_samples_num = num
@@ -71,8 +71,8 @@ class Simulation():
         alpha = nu + d/2
         t_start = 0.0
         t_end = 1.0
-        beta_u = (sigma_u**2)*(2**d * np.pi**(d/2))* 1.1283791670955126#<-- this numerical value is scp.special.gamma(alpha))/scp.special.gamma(nu)
-        beta_v = beta_u*(sigma_v/sigma_u)**2
+        beta_u = (sigma_0**2)*(2**d * np.pi**(d/2))* 1.1283791670955126#<-- this numerical value is scp.special.gamma(alpha))/scp.special.gamma(nu)
+        beta_v = beta_u*(sigma_v/sigma_0)**2
         sqrtBeta_v = np.sqrt(beta_v)
         sqrtBeta_u = np.sqrt(beta_u)
         
@@ -99,7 +99,7 @@ class Simulation():
         #initialize Layers
         # n_layers = 2
         Layers = []
-        factor = 1e-8
+        # factor = 1e-8
         for i in range(self.n_layers):
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
@@ -122,7 +122,7 @@ class Simulation():
                     lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
                     lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
                 else:
-                    lay = layer.Layer(False,sqrtBeta_v*np.sqrt(factor),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
+                    lay = layer.Layer(False,sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
             #TODO: toggle this if pcn.one_step_one_element is not used
             # lay.samples_history = np.empty((lay.n_samples*self.fourier.fourier_basis_number, self.fourier.fourier_basis_number), dtype=np.complex128)
@@ -143,7 +143,7 @@ class Simulation():
         dummy_complexs = np.array([0.0+1j*1.0,1.0+1j*0.0])
         dummy_floats = np.array([1.0,1.0])
 
-        sim_result = simRes.SimulationResult(dummy_complexs,dummy_floats,dummy_complexs,dummy_floats,dummy_floats,dummy_floats,dummy_floats,dummy_floats,dummy_floats)     
+        sim_result = simRes.SimulationResult()     
         self.sim_result = sim_result
     
     def run(self):
@@ -208,64 +208,146 @@ class Simulation():
         # ut = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
         # lU = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
 
-        vtM = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-        vtM2 = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-        vtCount = 0
-        vtAggregateNow = (vtCount,vtM,vtM2) 
+        utM = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        utM2 = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        utCount = np.zeros(self.n_layers)
+        utAggregateNow=[] 
+        for i in range(self.n_layers):
+            utAggregate_Layer_i_Now = (utCount[i],utM[i,:],utM2[i,:])
+            utAggregateNow.append(utAggregate_Layer_i_Now) 
 
-        luM = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-        luM2 = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-        luCount = 0
-        luAggregateNow = (luCount,luM,luM2)
+        elltM = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        elltM2 = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        elltCount = np.zeros(self.n_layers)
+        elltAggregateNow=[] 
+        for i in range(self.n_layers):
+            elltAggregate_Layer_i_Now = (elltCount[i],elltM[i,:],elltM2[i,:])
+            elltAggregateNow.append(elltAggregate_Layer_i_Now)
 
-        vHalfRealM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-        vHalfRealM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-        vHalfRealCount = 0
-        vHalfRealAggregateNow = (vHalfRealCount,vHalfRealM,vHalfRealM2)
+        
 
-        vHalfImagM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-        vHalfImagM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-        vHalfImagCount = 0
-        vHalfImagAggregateNow = (vHalfImagCount,vHalfImagM,vHalfImagM2)
+        uHalfRealM = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfRealM2 = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfRealCount = np.zeros(self.n_layers)
+        uHalfRealAggregateNow=[] 
+        for i in range(self.n_layers):
+            uHalfRealAggregate_Layer_i_Now = (uHalfRealCount[i],uHalfRealM[i,:],uHalfRealM2[i,:])
+            uHalfRealAggregateNow.append(uHalfRealAggregate_Layer_i_Now) 
+
+        uHalfImagM = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfImagM2 = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfImagCount = np.zeros(self.n_layers)
+        uHalfImagAggregateNow=[] 
+        for i in range(self.n_layers):
+            uHalfImagAggregate_Layer_i_Now = (uHalfImagCount[i],uHalfImagM[i,:],uHalfImagM2[i,:])
+            uHalfImagAggregateNow.append(uHalfImagAggregate_Layer_i_Now) 
 
         sigmas = util.sigmasLancos(self.fourier.fourier_basis_number)
 
         vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)
         vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
         for i in range(startIndex,self.n_samples):
-            utNow = self.fourier.inverseFourierLimited(self.Layers[-2].samples_history[i,:]*sigmas)
-            # lUNow = 1/np.flip(util.kappaFun(utNow))#<-  ini aneh ni kenapa harus di flip!!!
-            lUNow = 1/util.kappaFun(utNow)#<-  ini aneh ni kenapa harus di flip!!!
-            vtEsNow = self.fourier.inverseFourierLimited(self.Layers[-1].samples_history[i,:]*sigmas)
-            luAggregateNow = util.updateWelford(luAggregateNow,lUNow)
-            vtAggregateNow = util.updateWelford(vtAggregateNow,vtEsNow)
-            vHalfRealAggregateNow = util.updateWelford(vHalfRealAggregateNow,self.Layers[-1].samples_history[i,:].real)
-            vHalfImagAggregateNow = util.updateWelford(vHalfImagAggregateNow,self.Layers[-1].samples_history[i,:].imag)
+            for j in range(self.n_layers): 
+                utNow = self.fourier.inverseFourierLimited(self.Layers[j].samples_history[i,:]*sigmas)
+                # lUNow = 1/np.flip(util.kappaFun(utNow))#<-  ini aneh ni kenapa harus di flip!!!
+                elltNow = util.kappaFun(-utNow)#<-  ini aneh ni kenapa harus di flip!!!
+                
+                utAggregateNow[j] = util.updateWelford(utAggregateNow[j],utNow)
+                elltAggregateNow[j] = util.updateWelford(elltAggregateNow[j],elltNow)
+                uHalfRealAggregateNow[j] = util.updateWelford(uHalfRealAggregateNow[j],self.Layers[j].samples_history[i,:].real)
+                uHalfImagAggregateNow[j] = util.updateWelford(uHalfImagAggregateNow[j],self.Layers[j].samples_history[i,:].imag)
 
         # for i in range(len(vHistoryBurned)):
         # utMean, variance, sampleVariance = util.finalizeWelford(utAggregateNow)
-        vtMean = vtAggregateNow[1]
-        vtVar = vtAggregateNow[2]/vtAggregateNow[0]
+        utMean = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        utVar = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        elltMean = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        elltVar = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
+        uHalfMean = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.complex128)
+        uHalfRealVar = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfImagVar = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        for j in range(self.n_layers):
+            utMean[j,:] = utAggregateNow[j][1]
+            utVar[j,:] = utAggregateNow[j][2]/utAggregateNow[j][0]
 
-        lMean = luAggregateNow[1]
-        lVar = luAggregateNow[2]/luAggregateNow[0]
+            elltMean[j,:] = elltAggregateNow[j][1]
+            elltVar[j,:] = elltAggregateNow[j][2]/elltAggregateNow[j][0]
 
-        vHalfMean = vHalfRealAggregateNow[1]+1j*vHalfImagAggregateNow[1]
-        vHalfVarReal = vHalfRealAggregateNow[2]/vHalfRealAggregateNow[0]
-        vHalfVarImag = vHalfImagAggregateNow[2]/vHalfImagAggregateNow[0]
+            uHalfMean[j,:] = uHalfRealAggregateNow[j][1]+1j*uHalfImagAggregateNow[j][1]
+            uHalfRealVar[j,:] = uHalfRealAggregateNow[j][2]/uHalfRealAggregateNow[j][0]
+            uHalfImagVar[j,:] = uHalfImagAggregateNow[j][2]/uHalfImagAggregateNow[j][0]
 
 
 
-        # vtMean = vtEs.mean(axis=1)
-        # vtVar = vtEs.var(axis=1)
-        
-        # lMean = lU.mean(axis=1)
-        # lVar = lU.var(axis=1)
+        # sim_result = simRes.SimulationResult()
+        # sim_result.assign_values(vtHalf,vtF,uHalfMean,np.sqrt(uHalfRealVar),np.sqrt(uHalfImagVar),elltMean,np.sqrt(elltVar),utMean,np.sqrt(utVar))
+        self.sim_result.assign_values(vtHalf,vtF,uHalfMean,np.sqrt(uHalfRealVar),np.sqrt(uHalfImagVar),elltMean,np.sqrt(elltVar),utMean,np.sqrt(utVar))
 
-        # cummU = np.cumsum(self.u_history[startIndex:,:])
-        # indexCumm = np.arange(1,len(cummU)+1)
-        # cummMeanU = cummU.T/indexCumm
-        # cummMeanU = cummMeanU.T
+# def analyze(self):
+#     startIndex = np.int(self.burn_percentage*self.n_samples//100)
+    
+#     # vtEs = np.empty((self.measurement.t.shape[0],len(vHistoryBurned)))
+#     # ut = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
+#     # lU = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
 
-        sim_result = simRes.SimulationResult(vtHalf,vtF,vHalfMean,np.sqrt(vHalfVarReal),np.sqrt(vHalfVarImag),lMean,np.sqrt(lVar),vtMean,np.sqrt(vtVar))
-        self.sim_result = sim_result
+#     vtM = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
+#     vtM2 = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
+#     vtCount = 0
+#     vtAggregateNow = (vtCount,vtM,vtM2) 
+
+#     luM = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
+#     luM2 = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
+#     luCount = 0
+#     luAggregateNow = (luCount,luM,luM2)
+
+#     vHalfRealM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+#     vHalfRealM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+#     vHalfRealCount = 0
+#     vHalfRealAggregateNow = (vHalfRealCount,vHalfRealM,vHalfRealM2)
+
+#     vHalfImagM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+#     vHalfImagM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
+#     vHalfImagCount = 0
+#     vHalfImagAggregateNow = (vHalfImagCount,vHalfImagM,vHalfImagM2)
+
+#     sigmas = util.sigmasLancos(self.fourier.fourier_basis_number)
+
+#     vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)
+#     vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
+#     for i in range(startIndex,self.n_samples):
+#         utNow = self.fourier.inverseFourierLimited(self.Layers[-2].samples_history[i,:]*sigmas)
+#         # lUNow = 1/np.flip(util.kappaFun(utNow))#<-  ini aneh ni kenapa harus di flip!!!
+#         lUNow = 1/util.kappaFun(utNow)#<-  ini aneh ni kenapa harus di flip!!!
+#         vtEsNow = self.fourier.inverseFourierLimited(self.Layers[-1].samples_history[i,:]*sigmas)
+#         luAggregateNow = util.updateWelford(luAggregateNow,lUNow)
+#         vtAggregateNow = util.updateWelford(vtAggregateNow,vtEsNow)
+#         vHalfRealAggregateNow = util.updateWelford(vHalfRealAggregateNow,self.Layers[-1].samples_history[i,:].real)
+#         vHalfImagAggregateNow = util.updateWelford(vHalfImagAggregateNow,self.Layers[-1].samples_history[i,:].imag)
+
+#     # for i in range(len(vHistoryBurned)):
+#     # utMean, variance, sampleVariance = util.finalizeWelford(utAggregateNow)
+#     vtMean = vtAggregateNow[1]
+#     vtVar = vtAggregateNow[2]/vtAggregateNow[0]
+
+#     lMean = luAggregateNow[1]
+#     lVar = luAggregateNow[2]/luAggregateNow[0]
+
+#     vHalfMean = vHalfRealAggregateNow[1]+1j*vHalfImagAggregateNow[1]
+#     vHalfVarReal = vHalfRealAggregateNow[2]/vHalfRealAggregateNow[0]
+#     vHalfVarImag = vHalfImagAggregateNow[2]/vHalfImagAggregateNow[0]
+
+
+
+#     # vtMean = vtEs.mean(axis=1)
+#     # vtVar = vtEs.var(axis=1)
+    
+#     # lMean = lU.mean(axis=1)
+#     # lVar = lU.var(axis=1)
+
+#     # cummU = np.cumsum(self.u_history[startIndex:,:])
+#     # indexCumm = np.arange(1,len(cummU)+1)
+#     # cummMeanU = cummU.T/indexCumm
+#     # cummMeanU = cummMeanU.T
+
+#     sim_result = simRes.SimulationResult(vtHalf,vtF,vHalfMean,np.sqrt(vHalfVarReal),np.sqrt(vHalfVarImag),lMean,np.sqrt(lVar),vtMean,np.sqrt(vtVar))
+#     self.sim_result = sim_result
