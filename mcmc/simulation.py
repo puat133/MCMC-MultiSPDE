@@ -99,7 +99,7 @@ class Simulation():
         #initialize Layers
         # n_layers = 2
         Layers = []
-        factor = 1e-4
+        factor = 1e0
         for i in range(self.n_layers):
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
@@ -124,6 +124,9 @@ class Simulation():
                 else:
                     lay = layer.Layer(False,sqrtBeta_v*np.sqrt(factor),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
+            #TODO: toggle this if pcn.one_step_one_element is not used
+            # lay.samples_history = np.empty((lay.n_samples*self.fourier.fourier_basis_number, self.fourier.fourier_basis_number), dtype=np.complex128)
+
             Layers.append(lay)
                 
 
@@ -160,9 +163,14 @@ class Simulation():
         
         for i in range(self.n_samples):#nb.prange(nSim):
             accepted_count_partial += self.pcn.oneStep(self.Layers)
+            # for j in range(self.fourier.fourier_basis_number):
+            #     accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
             if (i+1)%(self.evaluation_interval) == 0:
                 self.accepted_count += accepted_count_partial
                 acceptancePercentage = self.accepted_count/(i+1)
+
+                #TODO: toggle this if pcn.one_step_one_element is not used
+                # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.fourier_basis_number)
                 
                 # if acceptancePercentage> 0.5:
                 #     self.pcn.more_aggresive()
