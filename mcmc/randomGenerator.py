@@ -21,7 +21,7 @@ class RandomGenerator:
     def construct_w_half(self):
         wHalf = np.random.randn(self.length)+1j*np.random.randn(self.length)
         # wHalf[0] = wHalf[0].real*np.sqrt(2)
-        wHalf[0] = 2*wHalf[0].real
+        wHalf[0] = self.sqrt2*wHalf[0].real
         # return wHalf/np.sqrt(2)
         return wHalf/self.sqrt2
 
