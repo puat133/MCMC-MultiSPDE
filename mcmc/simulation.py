@@ -1,5 +1,6 @@
 import numpy as np
 import numba as nb
+# from numba.typed import List
 import mcmc.util as util
 import mcmc.fourier as fourier
 import mcmc.L as L
@@ -34,6 +35,7 @@ import time
 #     ('Layers',Layer_type[:]),
 #     # ('LMat',L_matrix_type),
 #     # ('measurement',meas_type),
+#     ('n_layers',nb.int64),
 #     ('n_samples',nb.int64),
 #     ('meas_samples_num',nb.int64),
 #     ('evaluation_interval',nb.int64),
@@ -51,9 +53,8 @@ import time
 
 # @nb.jitclass(spec)
 class Simulation():
-    def __init__(self,n_layers=2,n_samples = 1000,n = 2**6,beta = 2e-3,num = 2**8,
-                    kappa = 1e17,sigma_0 = 5e6,sigma_v = 10,sigma_scaling= 1e-8,evaluation_interval = 100,printProgress=True,
-                    seed=1,burn_percentage = 5.0):
+    def __init__(self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
+                    seed,burn_percentage):
         self.n_samples = n_samples
         self.meas_samples_num = num
         self.evaluation_interval = evaluation_interval
@@ -71,10 +72,10 @@ class Simulation():
         alpha = nu + d/2
         t_start = 0.0
         t_end = 1.0
-        beta_u = (sigma_0**2)*(2**d * np.pi**(d/2))* 1.1283791670955126#<-- this numerical value is scp.special.gamma(alpha))/scp.special.gamma(nu)
-        beta_v = beta_u*(sigma_v/sigma_0)**2
+        beta_0 = (sigma_0**2)*(2**d * np.pi**(d/2))* 1.1283791670955126#<-- this numerical value is scp.special.gamma(alpha))/scp.special.gamma(nu)
+        beta_v = beta_0*(sigma_v/sigma_0)**2
         sqrtBeta_v = np.sqrt(beta_v)
-        sqrtBeta_u = np.sqrt(beta_u)
+        sqrtBeta_0 = np.sqrt(beta_0)
         
         f =  fourier.FourierAnalysis(n,num,t_start,t_end)
         self.fourier = f
@@ -83,7 +84,7 @@ class Simulation():
         self.random_gen = rg
         
 
-        LuReal = (1/sqrtBeta_u)*(self.fourier.Dmatrix*kappa**(-nu) - kappa**(2-nu)*self.fourier.Imatrix)
+        LuReal = (1/sqrtBeta_0)*(self.fourier.Dmatrix*kappa**(-nu) - kappa**(2-nu)*self.fourier.Imatrix)
         Lu = LuReal + 1j*np.zeros(LuReal.shape)
         
         uStdev = -1/np.diag(Lu)
@@ -92,8 +93,8 @@ class Simulation():
 
         meas_std = 0.1
         measurement = meas.Measurement(num,meas_std,t_start,t_end)
-        pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
-        self.pcn = pcn
+        # pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
+        self.pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
 
         
         #initialize Layers
@@ -103,7 +104,7 @@ class Simulation():
         for i in range(self.n_layers):
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
-                lay = layer.Layer(True,sqrtBeta_u,i,self.n_samples,self.pcn,init_sample)
+                lay = layer.Layer(True,sqrtBeta_0,i,self.n_samples,self.pcn,init_sample)
                 lay.stdev = uStdev
                 lay.current_sample_scaled_norm = util.norm2(lay.current_sample/lay.stdev)#ToDO: Modify this
                 lay.new_sample_scaled_norm = lay.current_sample_scaled_norm
@@ -133,16 +134,6 @@ class Simulation():
 
 
         self.Layers = Layers
-        # self.pcn.current_sample = init_sample
-        # self.pcn.LMat.construct_from(newSample)
-
-        
-        # self.H = self.measurement.get_measurement_matrix(self.fourier.fourier_basis_number)/meas_std #<-- Normalized
-        # self.yBar = np.concatenate((self.measurement.yt/meas_std,np.zeros(2*self.fourier.fourier_basis_number-1)))#<-- Normalized 
-        #initializing is important
-        dummy_complexs = np.array([0.0+1j*1.0,1.0+1j*0.0])
-        dummy_floats = np.array([1.0,1.0])
-
         sim_result = simRes.SimulationResult()     
         self.sim_result = sim_result
     
@@ -283,71 +274,3 @@ class Simulation():
         # sim_result.assign_values(vtHalf,vtF,uHalfMean,np.sqrt(uHalfRealVar),np.sqrt(uHalfImagVar),elltMean,np.sqrt(elltVar),utMean,np.sqrt(utVar))
         self.sim_result.assign_values(vtHalf,vtF,uHalfMean,np.sqrt(uHalfRealVar),np.sqrt(uHalfImagVar),elltMean,np.sqrt(elltVar),utMean,np.sqrt(utVar))
 
-# def analyze(self):
-#     startIndex = np.int(self.burn_percentage*self.n_samples//100)
-    
-#     # vtEs = np.empty((self.measurement.t.shape[0],len(vHistoryBurned)))
-#     # ut = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
-#     # lU = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
-
-#     vtM = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-#     vtM2 = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-#     vtCount = 0
-#     vtAggregateNow = (vtCount,vtM,vtM2) 
-
-#     luM = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-#     luM2 = np.zeros(self.pcn.measurement.t.shape,dtype=np.float64)
-#     luCount = 0
-#     luAggregateNow = (luCount,luM,luM2)
-
-#     vHalfRealM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-#     vHalfRealM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-#     vHalfRealCount = 0
-#     vHalfRealAggregateNow = (vHalfRealCount,vHalfRealM,vHalfRealM2)
-
-#     vHalfImagM = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-#     vHalfImagM2 = np.zeros(self.fourier.fourier_basis_number,dtype=np.float64)
-#     vHalfImagCount = 0
-#     vHalfImagAggregateNow = (vHalfImagCount,vHalfImagM,vHalfImagM2)
-
-#     sigmas = util.sigmasLancos(self.fourier.fourier_basis_number)
-
-#     vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)
-#     vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
-#     for i in range(startIndex,self.n_samples):
-#         utNow = self.fourier.inverseFourierLimited(self.Layers[-2].samples_history[i,:]*sigmas)
-#         # lUNow = 1/np.flip(util.kappaFun(utNow))#<-  ini aneh ni kenapa harus di flip!!!
-#         lUNow = 1/util.kappaFun(utNow)#<-  ini aneh ni kenapa harus di flip!!!
-#         vtEsNow = self.fourier.inverseFourierLimited(self.Layers[-1].samples_history[i,:]*sigmas)
-#         luAggregateNow = util.updateWelford(luAggregateNow,lUNow)
-#         vtAggregateNow = util.updateWelford(vtAggregateNow,vtEsNow)
-#         vHalfRealAggregateNow = util.updateWelford(vHalfRealAggregateNow,self.Layers[-1].samples_history[i,:].real)
-#         vHalfImagAggregateNow = util.updateWelford(vHalfImagAggregateNow,self.Layers[-1].samples_history[i,:].imag)
-
-#     # for i in range(len(vHistoryBurned)):
-#     # utMean, variance, sampleVariance = util.finalizeWelford(utAggregateNow)
-#     vtMean = vtAggregateNow[1]
-#     vtVar = vtAggregateNow[2]/vtAggregateNow[0]
-
-#     lMean = luAggregateNow[1]
-#     lVar = luAggregateNow[2]/luAggregateNow[0]
-
-#     vHalfMean = vHalfRealAggregateNow[1]+1j*vHalfImagAggregateNow[1]
-#     vHalfVarReal = vHalfRealAggregateNow[2]/vHalfRealAggregateNow[0]
-#     vHalfVarImag = vHalfImagAggregateNow[2]/vHalfImagAggregateNow[0]
-
-
-
-#     # vtMean = vtEs.mean(axis=1)
-#     # vtVar = vtEs.var(axis=1)
-    
-#     # lMean = lU.mean(axis=1)
-#     # lVar = lU.var(axis=1)
-
-#     # cummU = np.cumsum(self.u_history[startIndex:,:])
-#     # indexCumm = np.arange(1,len(cummU)+1)
-#     # cummMeanU = cummU.T/indexCumm
-#     # cummMeanU = cummMeanU.T
-
-#     sim_result = simRes.SimulationResult(vtHalf,vtF,vHalfMean,np.sqrt(vHalfVarReal),np.sqrt(vHalfVarImag),lMean,np.sqrt(lVar),vtMean,np.sqrt(vtVar))
-#     self.sim_result = sim_result
