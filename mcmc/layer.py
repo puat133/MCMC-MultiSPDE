@@ -41,7 +41,12 @@ class Layer():
         self.order_number = order_number
         # self.current_above_sample = above_sample
         self.n_samples = n_samples
+
+        #dummy declaration
+        # a_pcn = pCN.pCN(pcn.n_layers,pcn.random_gen,pcn.measurement,pcn.fourier,pcn.beta)#numba cannot understand without this
+        # self.pcn = a_pcn
         self.pcn = pcn
+
         
         # self.current_sample = np.zeros(f.fourier_basis_number,dtype=np.complex128)
         self.stdev = np.ones(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
@@ -54,12 +59,7 @@ class Layer():
         # LMat.fourier = self.pcn.fourier
         self.LMat = LMat
         
-        # if self.is_stationary == False:    
-        #     # self.LMat.construct_from(self.current_above_sample)
-        #     self.LMat.set_current_L_to_latest()
-        #     # self.norm_current_sample = 1e20#Set to very big value
-        #     self.current_log_det_L = self.LMat.logDet()
-        # else:
+        
         if self.is_stationary:
             
             # self.current_sample = init_sample
