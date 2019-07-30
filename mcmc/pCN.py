@@ -8,28 +8,28 @@ import mcmc.measurement as meas
 
 
 
-Rand_gen_type = nb.deferred_type()
-Rand_gen_type.define(randomGenerator.RandomGenerator.class_type.instance_type)
-meas_type = nb.deferred_type()
-meas_type.define(meas.Measurement.class_type.instance_type)
-fourier_type = nb.deferred_type()
-fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)    
-spec = [
-    ('n_layers',nb.int64),
-    ('beta',nb.float64),
-    ('betaZ',nb.float64),
-    ('random_gen',Rand_gen_type),
-    ('measurement',meas_type),
-    ('fourier',fourier_type),
-    ('H',nb.complex128[:,:]),
-    ('yBar',nb.float64[:]),
-    ('gibbs_step',nb.int64),
-    ('aggresiveness',nb.float64),
-    ('target_acceptance_rate',nb.float64),
-    ('beta_feedback_gain',nb.float64),
-]
+# Rand_gen_type = nb.deferred_type()
+# Rand_gen_type.define(randomGenerator.RandomGenerator.class_type.instance_type)
+# meas_type = nb.deferred_type()
+# meas_type.define(meas.Measurement.class_type.instance_type)
+# fourier_type = nb.deferred_type()
+# fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)    
+# spec = [
+#     ('n_layers',nb.int64),
+#     ('beta',nb.float64),
+#     ('betaZ',nb.float64),
+#     ('random_gen',Rand_gen_type),
+#     ('measurement',meas_type),
+#     ('fourier',fourier_type),
+#     ('H',nb.complex128[:,:]),
+#     ('yBar',nb.float64[:]),
+#     ('gibbs_step',nb.int64),
+#     ('aggresiveness',nb.float64),
+#     ('target_acceptance_rate',nb.float64),
+#     ('beta_feedback_gain',nb.float64),
+# ]
 
-@nb.jitclass(spec)
+# @nb.jitclass(spec)
 class pCN():
     def __init__(self,n_layers,rg,measurement,f,beta=1):
         self.n_layers = n_layers
@@ -76,7 +76,10 @@ class pCN():
             # new_sample = Layers[i].new_sample
             if i> 0:
                 Layers[i].LMat.construct_from(Layers[i-1].new_sample)
-                Layers[i].new_log_L_det = (np.linalg.slogdet(Layers[i].LMat.latest_computed_L)[1])
+                Layers[i].new_log_L_det = np.linalg.slogdet(Layers[i].LMat.latest_computed_L)[1]
+                # if i < self.n_layers - 1 :
+                #     Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].current_sample_symmetrized)
+                # else:
                 Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_symmetrized)
                 Layers[i].new_sample_scaled_norm = util.norm2(Layers[i].LMat.latest_computed_L@Layers[i].new_sample_symmetrized)
 

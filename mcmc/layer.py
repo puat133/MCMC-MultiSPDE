@@ -5,35 +5,35 @@ import mcmc.fourier as fourier
 import mcmc.L as L
 import mcmc.pCN as pCN
 
-L_matrix_type = nb.deferred_type()
-L_matrix_type.define(L.Lmatrix.class_type.instance_type)  
-pCN_type = nb.deferred_type()
-pCN_type.define(pCN.pCN.class_type.instance_type)
-fourier_type = nb.deferred_type()
-fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)     
-spec = [
-    ('is_stationary',nb.boolean),
-    ('sqrt_beta',nb.float64),
-    ('order_number',nb.int64),
-    ('n_samples',nb.int64),
-    ('pcn',pCN_type),
-    ('i_record',nb.int64),
-    ('stdev',nb.complex128[:]),
-    ('samples_history',nb.complex128[:,:]),
-    ('current_sample',nb.complex128[:]),
-    ('current_sample_symmetrized',nb.complex128[:]),
-    ('current_sample_scaled_norm',nb.float64),
-    ('current_log_L_det',nb.float64),
-    ('new_sample',nb.complex128[:]),
-    ('new_sample_symmetrized',nb.complex128[:]),
-    ('new_sample_scaled_norm',nb.float64),
-    ('new_log_L_det',nb.float64),
-    ('LMat',L_matrix_type),
+# L_matrix_type = nb.deferred_type()
+# L_matrix_type.define(L.Lmatrix.class_type.instance_type)  
+# pCN_type = nb.deferred_type()
+# pCN_type.define(pCN.pCN.class_type.instance_type)
+# fourier_type = nb.deferred_type()
+# fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)     
+# spec = [
+#     ('is_stationary',nb.boolean),
+#     ('sqrt_beta',nb.float64),
+#     ('order_number',nb.int64),
+#     ('n_samples',nb.int64),
+#     ('pcn',pCN_type),
+#     ('i_record',nb.int64),
+#     ('stdev',nb.complex128[:]),
+#     ('samples_history',nb.complex128[:,:]),
+#     ('current_sample',nb.complex128[:]),
+#     ('current_sample_symmetrized',nb.complex128[:]),
+#     ('current_sample_scaled_norm',nb.float64),
+#     ('current_log_L_det',nb.float64),
+#     ('new_sample',nb.complex128[:]),
+#     ('new_sample_symmetrized',nb.complex128[:]),
+#     ('new_sample_scaled_norm',nb.float64),
+#     ('new_log_L_det',nb.float64),
+#     ('LMat',L_matrix_type),
     
     
-]
+# ]
 
-@nb.jitclass(spec)
+# @nb.jitclass(spec)
 class Layer():
     def __init__(self,is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample):
         self.is_stationary = is_stationary
