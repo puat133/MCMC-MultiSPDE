@@ -1,5 +1,6 @@
 import numpy as np
 import numba as nb
+from numba.typed.typedlist import List
 # from numba.typed import List
 import mcmc.util as util
 import mcmc.fourier as fourier
@@ -11,6 +12,7 @@ import mcmc.measurement as meas
 import mcmc.simulationResults as simRes
 # import scipy as scp
 import time
+import h5py
 
 
 # fourier_type = nb.deferred_type()
@@ -98,8 +100,8 @@ class Simulation():
 
         
         #initialize Layers
-        # n_layers = 2
-        Layers = []
+        Layers = List()
+        # Layers = []
         # factor = 1e-8
         for i in range(self.n_layers):
             if i==0:
@@ -125,8 +127,8 @@ class Simulation():
                 else:
                     lay = layer.Layer(False,sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
-            #TODO: toggle this if pcn.one_step_one_element is not used
-            # lay.samples_history = np.empty((lay.n_samples*self.fourier.fourier_basis_number, self.fourier.fourier_basis_number), dtype=np.complex128)
+            # TODO: toggle this if pcn.one_step_one_element is not used
+            lay.samples_history = np.empty((lay.n_samples*(self.n_layers-1), self.fourier.fourier_basis_number), dtype=np.complex128)
 
             Layers.append(lay)
                 
@@ -158,7 +160,7 @@ class Simulation():
                 # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
             if (i+1)%(self.evaluation_interval) == 0:
                 self.accepted_count += accepted_count_partial
-                acceptancePercentage = self.accepted_count/(i+1)
+                acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))
 
                 #TODO: toggle this if pcn.one_step_one_element is not used
                 # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.fourier_basis_number)
@@ -273,4 +275,29 @@ class Simulation():
         # sim_result = simRes.SimulationResult()
         # sim_result.assign_values(vtHalf,vtF,uHalfMean,np.sqrt(uHalfRealVar),np.sqrt(uHalfImagVar),elltMean,np.sqrt(elltVar),utMean,np.sqrt(utVar))
         self.sim_result.assign_values(vtHalf,vtF,uHalfMean,np.sqrt(uHalfRealVar),np.sqrt(uHalfImagVar),elltMean,np.sqrt(elltVar),utMean,np.sqrt(utVar))
+
+
+    def save(self,file_name):
+        with h5py.File(file_name,'w') as f:
+            for key,value in self.__dict__.items():
+                NumbaType = 'numba.' in str(type(value))
+                if not NumbaType:
+                    f.create_dataset(key,data=value)
+                else:
+                    if key == 'sim_result':
+                        f.create_dataset('vtHalf',data=value.vtHalf)
+                        f.create_dataset('vtF',data=value.vtF)
+                        f.create_dataset('uHalfMean',data=value.uHalfMean)
+                        f.create_dataset('uHalfStdReal',data=value.uHalfStdReal)
+                        f.create_dataset('uHalfStdImag',data=value.uHalfStdImag)
+                        f.create_dataset('elltMean',data=value.elltMean)
+                        f.create_dataset('elltStd',data=value.elltStd)
+                        f.create_dataset('utMean',data=value.utMean)
+                        f.create_dataset('utStd',data=value.utStd)
+                    
+            
+                    
+
+                
+
 
