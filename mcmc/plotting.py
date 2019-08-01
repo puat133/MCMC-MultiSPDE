@@ -31,7 +31,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
 
         # n = sim.fourier.fourier_basis_number
         # numNew = sim.fourier.fourier_extended_basis_number
-
+    #save Simulation Result
+    sim.save(str(simResultPath/'result.hdf5'))
     t = sim.pcn.measurement.t
     # tNew = sim.sim_result.t
     # sigmas = util.sigmasLancos(n)
