@@ -5,35 +5,35 @@ import mcmc.fourier as fourier
 import mcmc.L as L
 import mcmc.pCN as pCN
 
-# L_matrix_type = nb.deferred_type()
-# L_matrix_type.define(L.Lmatrix.class_type.instance_type)  
-# pCN_type = nb.deferred_type()
-# pCN_type.define(pCN.pCN.class_type.instance_type)
-# fourier_type = nb.deferred_type()
-# fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)     
-# spec = [
-#     ('is_stationary',nb.boolean),
-#     ('sqrt_beta',nb.float64),
-#     ('order_number',nb.int64),
-#     ('n_samples',nb.int64),
-#     ('pcn',pCN_type),
-#     ('i_record',nb.int64),
-#     ('stdev',nb.complex128[:]),
-#     ('samples_history',nb.complex128[:,:]),
-#     ('current_sample',nb.complex128[:]),
-#     ('current_sample_symmetrized',nb.complex128[:]),
-#     ('current_sample_scaled_norm',nb.float64),
-#     ('current_log_L_det',nb.float64),
-#     ('new_sample',nb.complex128[:]),
-#     ('new_sample_symmetrized',nb.complex128[:]),
-#     ('new_sample_scaled_norm',nb.float64),
-#     ('new_log_L_det',nb.float64),
-#     ('LMat',L_matrix_type),
+L_matrix_type = nb.deferred_type()
+L_matrix_type.define(L.Lmatrix.class_type.instance_type)  
+pCN_type = nb.deferred_type()
+pCN_type.define(pCN.pCN.class_type.instance_type)
+fourier_type = nb.deferred_type()
+fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)     
+spec = [
+    ('is_stationary',nb.boolean),
+    ('sqrt_beta',nb.float64),
+    ('order_number',nb.int64),
+    ('n_samples',nb.int64),
+    ('pcn',pCN_type),
+    ('i_record',nb.int64),
+    ('stdev',nb.complex128[:]),
+    ('samples_history',nb.complex128[:,:]),
+    ('current_sample',nb.complex128[:]),
+    ('current_sample_symmetrized',nb.complex128[:]),
+    ('current_sample_scaled_norm',nb.float64),
+    ('current_log_L_det',nb.float64),
+    ('new_sample',nb.complex128[:]),
+    ('new_sample_symmetrized',nb.complex128[:]),
+    ('new_sample_scaled_norm',nb.float64),
+    ('new_log_L_det',nb.float64),
+    ('LMat',L_matrix_type),
     
     
-# ]
+]
 
-# @nb.jitclass(spec)
+@nb.jitclass(spec)
 class Layer():
     def __init__(self,is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample):
         self.is_stationary = is_stationary
@@ -49,7 +49,10 @@ class Layer():
 
         
         # self.current_sample = np.zeros(f.fourier_basis_number,dtype=np.complex128)
-        self.stdev = np.ones(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
+        zero_compl_dummy =  np.zeros(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
+        ones_compl_dummy =  np.ones(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
+
+        self.stdev = ones_compl_dummy
         self.samples_history = np.empty((self.n_samples, self.pcn.fourier.fourier_basis_number), dtype=np.complex128)
         
         #dummy declaration
@@ -62,8 +65,8 @@ class Layer():
         
         if self.is_stationary:
             
-            # self.current_sample = init_sample
-            self.new_sample = init_sample
+            self.current_sample = zero_compl_dummy
+            self.new_sample = zero_compl_dummy
             self.new_sample_symmetrized = self.pcn.random_gen.symmetrize(self.new_sample)
             self.new_sample_scaled_norm = 0
             self.new_log_L_det = 0
@@ -75,7 +78,7 @@ class Layer():
             
 
         else:
-            # zero_init = np.zeros(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
+            zero_init = np.zeros(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
             self.LMat.construct_from(init_sample)
             self.LMat.set_current_L_to_latest()
             self.new_sample_symmetrized = np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
@@ -136,4 +139,3 @@ class Layer():
         self.current_sample_symmetrized = self.new_sample_symmetrized.copy()
         self.current_sample_scaled_norm = self.new_sample_scaled_norm
         self.current_log_L_det = self.new_log_L_det
-
