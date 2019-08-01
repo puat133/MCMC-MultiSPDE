@@ -294,6 +294,8 @@ class Simulation():
                         f.create_dataset('elltStd',data=value.elltStd)
                         f.create_dataset('utMean',data=value.utMean)
                         f.create_dataset('utStd',data=value.utStd)
+                    if key == 'pcn':
+                        f.create_dataset('beta',data=value.beta)
                     
             
                     
