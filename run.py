@@ -33,7 +33,7 @@ if __name__=='__main__':
     parser.add_argument('--num',default=2**8,type=int,help='number measurement points, Default=256')
     parser.add_argument('--n-samples',default=1000,type=int,help='number of MCMC samples per computer core, Default=10000')
     parser.add_argument('--evaluation-interval',default=100,type=int,help='interval to print and reevaluate beta, Default=100')
-    parser.add_argument('--beta',default=0.2,type=float,help='preconditioned Crank Nicholson beta parameter, Default=0.2')
+    parser.add_argument('--beta',default=1,type=float,help='preconditioned Crank Nicholson beta parameter, Default=1')
     parser.add_argument('--kappa',default=1e17,type=float,help='kappa constant for u_t, Default=1e17')
     parser.add_argument('--sigma-0',default=5e6,type=float,help='Sigma_u constant, Default=5e6')
     parser.add_argument('--sigma-v',default=1e2,type=float,help='Sigma_v constant, Default=10.0')
