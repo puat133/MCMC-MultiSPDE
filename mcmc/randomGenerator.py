@@ -32,5 +32,6 @@ class RandomGenerator:
     
     def symmetrize(self,w_half):
         w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
+        # w = np.zeros(2*w_half.shape[0]-1,dtype=np.complex128)
         return w
 
