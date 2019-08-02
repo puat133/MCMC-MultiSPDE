@@ -6,7 +6,7 @@ import pathlib
 import seaborn as sns
 import pathlib
 import datetime
-def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=True,showFigures=False):
+def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=True,showFigures=False,save_hdf5=True,include_history=False):
     #unpack sim.sim_result
     vtHalf = sim.sim_result.vtHalf
     vtF = sim.sim_result.vtF
@@ -31,8 +31,9 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
 
         # n = sim.fourier.fourier_basis_number
         # numNew = sim.fourier.fourier_extended_basis_number
-    #save Simulation Result
-    sim.save(str(simResultPath/'result.hdf5'))
+    if save_hdf5:
+        #save Simulation Result
+        sim.save(str(simResultPath/'result.hdf5'),include_history)
     t = sim.pcn.measurement.t
     # tNew = sim.sim_result.t
     # sigmas = util.sigmasLancos(n)
