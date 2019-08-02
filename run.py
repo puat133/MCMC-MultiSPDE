@@ -39,7 +39,7 @@ if __name__=='__main__':
     parser.add_argument('--sigma-v',default=1e2,type=float,help='Sigma_v constant, Default=10.0')
     parser.add_argument('--sigma-scaling',default=1e-4,type=float,help='Sigma_scaling constant, Default=1e-4')
     parser.add_argument('--burn-percentage',default=5.0,type=float,help='Burn Percentage, Default=5.0')
-    # parser.add_argument('--use-latex',default=True,type=bool,help='Whether to use Latex for plotting or not, Default=True')
+    parser.add_argument('--include-history',default=False,type=bool,help='Whether to include Layer simulation history in hdf5, Default=False')
     # parser.add_argument('--show-figures',default=True,type=bool,help='Whether to show simulation results figures or not, Default=True')
     # parser.add_argument('--rand-vect-init',default=False,type=bool,help='Whether to preallocate random vector before running MCMC, Default=False')
     # parser.add_argument('--init-file',default=None,type=str,help='Hdf5 file containing data set called cummMeanU, with size match parameter n, Default=None')
@@ -54,4 +54,4 @@ if __name__=='__main__':
     sim.pcn.beta_feedback_gain = 2.1
     sim.run()
     sim.analyze()
-    p.plotResult(sim)
+    p.plotResult(sim,include_history=args.include_history)
