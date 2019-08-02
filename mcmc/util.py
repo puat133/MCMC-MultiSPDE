@@ -80,8 +80,8 @@ def kappa_pow_min_nu(ut):
     # for i in nb.prange(ut.shape[0]):
     #     res[i] = math.exp(1.5*ut[i])
     # return res
-    return kappaFun(ut)**(-1.5)
-    # return np.exp(1.5*ut)
+    # return kappaFun(ut)**(-1.5)
+    return np.exp(1.5*ut)
 
 @njitParallel
 def kappa_pow_half(ut):
@@ -89,8 +89,8 @@ def kappa_pow_half(ut):
     # for i in nb.prange(ut.shape[0]):
     #     res[i] = math.exp(-0.5*ut[i])
     # return res
-    # return np.exp(-0.5*ut)
-    return np.sqrt(kappaFun(ut))
+    return np.exp(-0.5*ut)
+    # return np.sqrt(kappaFun(ut))
 
 @njitParallel
 def norm2(u):

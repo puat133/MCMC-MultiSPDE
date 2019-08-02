@@ -21,7 +21,7 @@ class RandomGenerator:
     def construct_w_half(self):
         wHalf = np.random.randn(self.length)+1j*np.random.randn(self.length)
         # wHalf[0] = wHalf[0].real*np.sqrt(2)
-        wHalf[0] = 2*wHalf[0].real
+        wHalf[0] = self.sqrt2*wHalf[0].real
         # return wHalf/np.sqrt(2)
         return wHalf/self.sqrt2
 
@@ -32,5 +32,6 @@ class RandomGenerator:
     
     def symmetrize(self,w_half):
         w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
+        # w = np.zeros(2*w_half.shape[0]-1,dtype=np.complex128)
         return w
 
