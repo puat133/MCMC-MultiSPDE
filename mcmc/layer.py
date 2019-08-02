@@ -65,8 +65,8 @@ class Layer():
         
         if self.is_stationary:
             
-            self.current_sample = zero_compl_dummy
-            self.new_sample = zero_compl_dummy
+            self.current_sample = init_sample
+            self.new_sample = init_sample
             self.new_sample_symmetrized = self.pcn.random_gen.symmetrize(self.new_sample)
             self.new_sample_scaled_norm = 0
             self.new_log_L_det = 0
