@@ -277,7 +277,7 @@ class Simulation():
         self.sim_result.assign_values(vtHalf,vtF,uHalfMean,np.sqrt(uHalfRealVar),np.sqrt(uHalfImagVar),elltMean,np.sqrt(elltVar),utMean,np.sqrt(utVar))
 
 
-    def save(self,file_name):
+    def save(self,file_name,include_history=False):
         with h5py.File(file_name,'w') as f:
             for key,value in self.__dict__.items():
                 NumbaType = 'numba.' in str(type(value))
@@ -294,8 +294,13 @@ class Simulation():
                         f.create_dataset('elltStd',data=value.elltStd)
                         f.create_dataset('utMean',data=value.utMean)
                         f.create_dataset('utStd',data=value.utStd)
+                        continue
                     if key == 'pcn':
                         f.create_dataset('beta',data=value.beta)
+                        continue
+                    if include_history and key == 'Layers':
+                        for i in range(self.n_layers):
+                            f.create_dataset('Layer - {0} samples'.format(i),data=value[i].samples_history)
                     
             
                     
