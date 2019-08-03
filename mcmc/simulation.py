@@ -56,7 +56,7 @@ import h5py
 # @nb.jitclass(spec)
 class Simulation():
     def __init__(self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
-                    seed,burn_percentage):
+                    seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
         self.n_samples = n_samples
         self.meas_samples_num = num
         self.evaluation_interval = evaluation_interval
@@ -65,28 +65,33 @@ class Simulation():
         self.random_seed = seed
         self.printProgress = printProgress
         self.n_layers=n_layers
+        self.kappa = kappa
+        self.sigma_0 = sigma_0
+        self.sigma_v = sigma_v
+        self.sigma_scaling = sigma_scaling
+        self.enable_beta_feedback = enable_beta_feedback
         np.random.seed(self.random_seed)
         
         
         #setup parameters for 1 Dimensional simulation
-        d = 1
-        nu = 2 - d/2
-        alpha = nu + d/2
-        t_start = 0.0
-        t_end = 1.0
-        beta_0 = (sigma_0**2)*(2**d * np.pi**(d/2))* 1.1283791670955126#<-- this numerical value is scp.special.gamma(alpha))/scp.special.gamma(nu)
-        beta_v = beta_0*(sigma_v/sigma_0)**2
-        sqrtBeta_v = np.sqrt(beta_v)
-        sqrtBeta_0 = np.sqrt(beta_0)
+        self.d = 1
+        self.nu = 2 - self.d/2
+        self.alpha = self.nu + self.d/2
+        self.t_start = 0.0
+        self.t_end = 1.0
+        self.beta_0 = (sigma_0**2)*(2**self.d * np.pi**(self.d/2))* 1.1283791670955126#<-- this numerical value is scp.special.gamma(alpha))/scp.special.gamma(nu)
+        self.beta_v = self.beta_0*(sigma_v/sigma_0)**2
+        self.sqrtBeta_v = np.sqrt(self.beta_v)
+        self.sqrtBeta_0 = np.sqrt(self.beta_0)
         
-        f =  fourier.FourierAnalysis(n,num,t_start,t_end)
+        f =  fourier.FourierAnalysis(n,num,self.t_start,self.t_end)
         self.fourier = f
         
         rg = randomGenerator.RandomGenerator(f.fourier_basis_number)
         self.random_gen = rg
         
 
-        LuReal = (1/sqrtBeta_0)*(self.fourier.Dmatrix*kappa**(-nu) - kappa**(2-nu)*self.fourier.Imatrix)
+        LuReal = (1/self.sqrtBeta_0)*(self.fourier.Dmatrix*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*self.fourier.Imatrix)
         Lu = LuReal + 1j*np.zeros(LuReal.shape)
         
         uStdev = -1/np.diag(Lu)
@@ -94,9 +99,10 @@ class Simulation():
         uStdev[0] /= 2 #scaled
 
         meas_std = 0.1
-        measurement = meas.Measurement(num,meas_std,t_start,t_end)
+        measurement = meas.Measurement(num,meas_std,self.t_start,self.t_end)
         # pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
         self.pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
+        self.pcn_pair_layers = pcn_pair_layers
 
         
         #initialize Layers
@@ -106,7 +112,7 @@ class Simulation():
         for i in range(self.n_layers):
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
-                lay = layer.Layer(True,sqrtBeta_0,i,self.n_samples,self.pcn,init_sample)
+                lay = layer.Layer(True,self.sqrtBeta_0,i,self.n_samples,self.pcn,init_sample)
                 lay.stdev = uStdev
                 lay.current_sample_scaled_norm = util.norm2(lay.current_sample/lay.stdev)#ToDO: Modify this
                 lay.new_sample_scaled_norm = lay.current_sample_scaled_norm
@@ -114,7 +120,7 @@ class Simulation():
                 
                 if i == n_layers-1:
                     
-                    lay = layer.Layer(False,sqrtBeta_v,i,self.n_samples,self.pcn,Layers[i-1].current_sample)
+                    lay = layer.Layer(False,self.sqrtBeta_v,i,self.n_samples,self.pcn,Layers[i-1].current_sample)
                     wNew = self.pcn.random_gen.construct_w()
                     eNew = np.random.randn(self.pcn.measurement.num_sample)
                     wBar = np.concatenate((eNew,wNew))
@@ -125,10 +131,13 @@ class Simulation():
                     lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
                     lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
                 else:
-                    lay = layer.Layer(False,sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
+                    lay = layer.Layer(False,self.sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
-            # TODO: toggle this if pcn.one_step_one_element is not used
-            lay.samples_history = np.empty((lay.n_samples*(self.n_layers-1), self.fourier.fourier_basis_number), dtype=np.complex128)
+
+            if self.pcn_pair_layers:
+                lay.samples_history = np.empty((lay.n_samples*(self.n_layers-1), self.fourier.fourier_basis_number), dtype=np.complex128)
+            else:
+                lay.samples_history = np.empty((lay.n_samples, self.fourier.fourier_basis_number), dtype=np.complex128)
 
             Layers.append(lay)
                 
@@ -160,16 +169,25 @@ class Simulation():
                 # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
             if (i+1)%(self.evaluation_interval) == 0:
                 self.accepted_count += accepted_count_partial
-                acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))
 
+                if self.pcn_pair_layers:
+                    acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))
+                    
+                else:
+                    acceptancePercentage = self.accepted_count/(i+1)
+                    
+                if self.enable_beta_feedback:
+                    self.pcn.adapt_beta(acceptancePercentage)
+                else:
+                    if acceptancePercentage> 0.5:
+                        self.pcn.more_aggresive()
+                    elif acceptancePercentage<0.3:
+                        self.pcn.less_aggresive()
                 #TODO: toggle this if pcn.one_step_one_element is not used
                 # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.fourier_basis_number)
                 
-                # if acceptancePercentage> 0.5:
-                #     self.pcn.more_aggresive()
-                # elif acceptancePercentage<0.3:
-                #     self.pcn.less_aggresive()
-                self.pcn.adapt_beta(acceptancePercentage)
+                
+                
                 
                 accepted_count_partial = 0
                 mTime = (i+1)/(self.evaluation_interval)
