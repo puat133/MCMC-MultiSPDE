@@ -94,7 +94,7 @@ class pCN():
             else:
                 Layers[i-1].new_sample_scaled_norm = util.norm2(Layers[i-1].new_sample/Layers[i-1].stdev)
                     
-            logRatio += (Layers[i-1].current_sample_scaled_norm-Layers[i-1].new_sample_scaled_norm)
+            logRatio += 0.5*(Layers[i-1].current_sample_scaled_norm-Layers[i-1].new_sample_scaled_norm)
             if logRatio>np.log(np.random.rand()):
                 for i in range(self.n_layers):
                     Layers[i].update_current_sample()
