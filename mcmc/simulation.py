@@ -171,17 +171,16 @@ class Simulation():
                 self.accepted_count += accepted_count_partial
 
                 if self.pcn_pair_layers:
-                    acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))
-                    
+                    self.acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))                    
                 else:
-                    acceptancePercentage = self.accepted_count/(i+1)
+                    self.acceptancePercentage = self.accepted_count/(i+1)
                     
                 if self.enable_beta_feedback:
-                    self.pcn.adapt_beta(acceptancePercentage)
+                    self.pcn.adapt_beta(self.acceptancePercentage)
                 else:
-                    if acceptancePercentage> 0.5:
+                    if self.acceptancePercentage> 0.5:
                         self.pcn.more_aggresive()
-                    elif acceptancePercentage<0.3:
+                    elif self.acceptancePercentage<0.3:
                         self.pcn.less_aggresive()
                 #TODO: toggle this if pcn.one_step_one_element is not used
                 # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.fourier_basis_number)
@@ -201,7 +200,7 @@ class Simulation():
                     remainingTime = average_time_intv*((self.n_samples - i)/self.evaluation_interval)
                     remainingTimeStr = time.strftime("%j-1 day(s),%H:%M:%S", time.gmtime(remainingTime))
                     if self.printProgress:
-                        util.printProgressBar(i+1, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
+                        util.printProgressBar(i+1, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,self.acceptancePercentage), suffix = 'Complete', length = 50)
 
         with nb.objmode():
             
@@ -209,7 +208,7 @@ class Simulation():
             self.total_time = time.time()-start_time
             # print('Complete')
             if self.printProgress:
-                util.printProgressBar(self.n_samples, self.n_samples, 'Iteration Completed in {0}- Acceptance Rate {1:.2%} - Progress:'.format(elapsedTimeStr,acceptancePercentage), suffix = 'Complete', length = 50)
+                util.printProgressBar(self.n_samples, self.n_samples, 'Iteration Completed in {0}- Acceptance Rate {1:.2%} - Progress:'.format(elapsedTimeStr,self.acceptancePercentage), suffix = 'Complete', length = 50)
     
 
     def analyze(self):
