@@ -1,6 +1,6 @@
 import numpy as np
 import numba as nb
-from numba.typed.typedlist import List
+import importlib
 # from numba.typed import List
 import mcmc.util as util
 import mcmc.fourier as fourier
@@ -106,7 +106,12 @@ class Simulation():
 
         
         #initialize Layers
-        Layers = List()
+        typed_list_status = importlib.util.find_spec('numba.typed.typedlist')
+        if typed_list_status is None:
+            Layers = []
+        else:
+            from numba.typed.typedlist import List
+            Layers = List()
         # Layers = []
         # factor = 1e-8
         for i in range(self.n_layers):
