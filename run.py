@@ -30,6 +30,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-layers',default=2,type=int,help='number SPDE layers, Default=2')
     parser.add_argument('--n',default=2**6,type=int,help='number of Fourier basis, Default=64')
+    parser.add_argument('--seed',default=1,type=int,help='random generator seed, Default=1')
     parser.add_argument('--num',default=2**8,type=int,help='number measurement points, Default=256')
     parser.add_argument('--n-samples',default=1000,type=int,help='number of MCMC samples per computer core, Default=10000')
     parser.add_argument('--evaluation-interval',default=100,type=int,help='interval to print and reevaluate beta, Default=100')
