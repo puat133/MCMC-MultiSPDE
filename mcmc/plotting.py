@@ -129,7 +129,7 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
         
         plt.figure()
         if j == sim.n_layers-1:
-            plt.plot(iHalf,vtHalf.real, '-r', iHalf, uHalfMean.imag,'-b', linewidth=0.5)
+            plt.plot(iHalf,vtHalf.imag, '-r', iHalf, uHalfMean.imag,'-b', linewidth=0.5)
         else:
             plt.plot(iHalf, uHalfMean.imag,'-b', linewidth=0.5)
         plt.fill_between(iHalf,uHalfMean.imag-2*uHalfStdImag,uHalfMean.imag+2*uHalfStdImag, color='b', alpha=.1)
