@@ -112,8 +112,8 @@ class Layer():
             self.new_sample = self.pcn.betaZ*self.current_sample + self.pcn.beta*self.stdev*self.pcn.random_gen.construct_w_half()
             # self.new_sample_symmetrized = self.pcn.random_gen.symmetrize(self.new_sample) 
         else:
-            self.new_sample_symmetrized = np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
-            # self.new_sample_symmetrized, res, rnk, s = np.linalg.lstsq(self.LMat.current_L,self.pcn.random_gen.construct_w())#,rcond=None)
+            self.new_sample_symmetrized = self.pcn.betaZ*self.current_sample_symmetrized + self.pcn.beta*np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
+            # self.new_sample_symmetrized = np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
             self.new_sample = self.new_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
 
        
