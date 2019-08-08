@@ -53,7 +53,7 @@ if __name__=='__main__':
     #                 seed,burn_percentage)
     sim = s.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
                     kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=True,
-                    seed=1,burn_percentage = args.burn_percentage,pcn_pair_layers=args.pcn_pair_layers,enable_beta_feedback=args.enable_beta_feedback)
+                    seed=args.seed,burn_percentage = args.burn_percentage,pcn_pair_layers=args.pcn_pair_layers,enable_beta_feedback=args.enable_beta_feedback)
     sim.pcn.beta_feedback_gain = 2.1
     sim.run()
     sim.analyze()

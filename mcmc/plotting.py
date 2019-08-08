@@ -15,7 +15,7 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     
         
     if np.any(indexCumm==None) or np.any(cummMeanU==None):
-        startIndex = np.int(sim.burn_percentage*sim.n_samples//100)
+        startIndex = np.int(sim.burn_percentage*sim.Layers[0].samples_history.shape[0]//100)
         cummU = np.cumsum(sim.Layers[0].samples_history[startIndex:,:],axis=0)
         indexCumm = np.arange(1,len(cummU)+1)
         cummMeanU = cummU.T/indexCumm
