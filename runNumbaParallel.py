@@ -23,8 +23,8 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
-    sim = s.Simulation(n_layers=n_layers,n_samples =n_samples,n =n,beta =beta,num =num,kappa =kappa,sigma_0 =sigma_0,sigma_v =sigma_v,sigma_scaling=sigma_scaling,evaluation_interval =evaluation_interval,printProgress=True,
-                    seed=1,burn_percentage = burn_percentage,pcn_pair_layers=pcn_pair_layers,enable_beta_feedback=enable_beta_feedback)
+    sim = s.Simulation(n_layers=n_layers,n_samples =n_samples,n =n,beta =beta,num =num,kappa =kappa,sigma_0 =sigma_0,sigma_v =sigma_v,sigma_scaling=sigma_scaling,          
+                        evaluation_interval =evaluation_interval,printProgress=False,seed=seed-1+rank,burn_percentage = burn_percentage,pcn_pair_layers=pcn_pair_layers,enable_beta_feedback=enable_beta_feedback)
 
         
     if rank==0:
@@ -100,18 +100,18 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
         utSum     = np.empty(sim.sim_result.utMean.shape,dtype=np.float64)
         elltSum     = np.empty(sim.sim_result.elltMean.shape,dtype=np.float64)
             
-        uHalfVarRealSum = np.empty(sim.sim_result.vtHalf.shape,dtype=np.float64)
-        uHalfVarImagSum = np.empty(sim.sim_result.vtHalf.shape,dtype=np.float64)
-        utVarSum = np.empty(sim.sim_result.vtF.shape,dtype=np.float64)
-        elltVarSum = np.empty(sim.sim_result.vtF.shape,dtype=np.float64)
+        uHalfVarRealSum = np.empty(sim.sim_result.uHalfStdReal.shape,dtype=np.float64)
+        uHalfVarImagSum = np.empty(sim.sim_result.uHalfStdImag.shape,dtype=np.float64)
+        utVarSum = np.empty(sim.sim_result.utStd.shape,dtype=np.float64)
+        elltVarSum = np.empty(sim.sim_result.elltStd.shape,dtype=np.float64)
         
         uHalfSum     = np.empty(sim.sim_result.uHalfMean.shape,dtype=np.complex128)
         cummMeanUSum     = np.empty(cummU.shape,dtype=np.complex128)
 
-        uHalfVarRealSumCorr = np.empty(sim.sim_result.vtHalf.shape,dtype=np.float64)
-        uHalfVarImagSumCorr = np.empty(sim.sim_result.vtHalf.shape,dtype=np.float64)
-        utVarSumCorr = np.empty(sim.sim_result.vtF.shape,dtype=np.float64)
-        elltVarSumCorr = np.empty(sim.sim_result.vtF.shape,dtype=np.float64)
+        uHalfVarRealSumCorr = np.empty(sim.sim_result.uHalfStdReal.shape,dtype=np.float64)
+        uHalfVarImagSumCorr = np.empty(sim.sim_result.uHalfStdImag.shape,dtype=np.float64)
+        utVarSumCorr = np.empty(sim.sim_result.utStd.shape,dtype=np.float64)
+        elltVarSumCorr = np.empty(sim.sim_result.elltStd.shape,dtype=np.float64)
     
     
         
@@ -155,8 +155,8 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
         print('Rank {0:d} allocate empty arrays for utMeanAll, uHalfMeanAll, elltMeanAll'.format(rank))
         sys.stdout.flush()
         uHalfMeanAll = np.empty(sim.sim_result.uHalfMean.shape,dtype=np.complex128)
-        utMeanAll = np.empty(sim.sim_result.vtF.shape,dtype=np.float64)   
-        elltMeanAll = np.empty(sim.sim_result.vtF.shape,dtype=np.float64)
+        utMeanAll = np.empty(sim.sim_result.utMean.shape,dtype=np.float64)   
+        elltMeanAll = np.empty(sim.sim_result.elltMean.shape,dtype=np.float64)
     
     print('Rank {0:d} broadcast utMeanAll, uHalfMeanAll, elltMeanAll from rank 0'.format(rank))
     sys.stdout.flush()
@@ -165,17 +165,17 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
     comm.Bcast([utMeanAll,MPI.DOUBLE],root=0)
     comm.Bcast([elltMeanAll,MPI.DOUBLE],root=0)
 
-    print('Rank {0:d} computing uHalfVar, vtVar,elltVar'.format(rank))
+    print('Rank {0:d} computing uHalfVar, utVar,elltVar'.format(rank))
     sys.stdout.flush()
     #Variance corrections
     uHalfVarRealCorrection = (sim.sim_result.uHalfMean.real - uHalfMeanAll.real)**2
     uHalfVarImagCorrection = (sim.sim_result.uHalfMean.imag - uHalfMeanAll.imag)**2
-    vtVarCorrection = (sim.sim_result.utMean - utMeanAll)**2
+    utVarCorrection = (sim.sim_result.utMean - utMeanAll)**2
     elltVarCorrection = (sim.sim_result.elltMean - elltMeanAll)**2
 
     comm.Reduce([uHalfVarRealCorrection,MPI.DOUBLE],uHalfVarRealSumCorr,MPI.SUM,root=0)
     comm.Reduce([uHalfVarImagCorrection,MPI.DOUBLE],uHalfVarImagSumCorr,MPI.SUM,root=0)
-    comm.Reduce([vtVarCorrection,MPI.DOUBLE],utVarSumCorr,MPI.SUM,root=0)
+    comm.Reduce([utVarCorrection,MPI.DOUBLE],utVarSumCorr,MPI.SUM,root=0)
     comm.Reduce([elltVarCorrection,MPI.DOUBLE],elltVarSumCorr,MPI.SUM,root=0)
     
     if rank==0:
