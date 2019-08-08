@@ -303,7 +303,8 @@ class Simulation():
         with h5py.File(file_name,'w') as f:
             for key,value in self.__dict__.items():
                 NumbaType = 'numba.' in str(type(value))
-                if not NumbaType:
+                ListType = isinstance(value,list)
+                if not NumbaType and not ListType:
                     f.create_dataset(key,data=value)
                 else:
                     if key == 'sim_result':
