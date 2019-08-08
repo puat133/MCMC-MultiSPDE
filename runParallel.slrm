@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=0-04:00:00 #time-requested
-#SBATCH --mem-per-cpu=40000 # memory (500MB)
+#SBATCH --time=0-24:00:00 #time-requested
+#SBATCH --mem-per-cpu=12G # memory
 #SBATCH -n 16 #16 process
 module load anaconda3
 module load openmpi
 
-srun python runNumbaParallel.py --n=64 --n-layers=3 --n-samples=1000000
+srun python runNumbaParallel.py --n=64 --n-layers=3 --n-samples=10000
