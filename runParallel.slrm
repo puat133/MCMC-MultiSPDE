@@ -5,4 +5,4 @@
 module load anaconda3
 
 
-mpiexec -n $SLURM_NTASKS python runNumbaParallel.py
+mpiexec -n $SLURM_NTASKS python runNumbaParallel.py --n-samples=1000 --n-layers=3 --sigma-scaling=1e-5
