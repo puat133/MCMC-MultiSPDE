@@ -1,9 +1,8 @@
 #!/bin/bash
 #SBATCH --time=2-0 #time-requested
-#SBATCH --mem-per-cpu=12G # memory
-##SBATCH -N 1 # one done
+#SBATCH --mem-per-cpu=4G # memory
 #SBATCH -n 16 #16 process
 module load anaconda3
 
 
-mpiexec -n $SLURM_NTASKS python runNumbaParallel.py --n-samples=1000 --n-layers=3 --sigma-scaling=1e-5
+mpiexec -n $SLURM_NTASKS python runNumbaParallel.py --n=64 --n-samples=10000000  --n-layers=3 --sigma-scaling=1e-5
