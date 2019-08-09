@@ -14,7 +14,7 @@ import pathlib
 import h5py
 
 def runSimulations(n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
-seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
+seed,burn_percentage,pcn_pair_layers,enable_beta_feedback,use_latex):
 
     #initialize parameter                   
     
@@ -194,7 +194,7 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
             sys.stdout.flush()
             sim.sim_result = sim_result0
             # p.plotResult(sim,indexCumm=indexCumm,cummMeanU=cummMeanU,showFigures=False)
-            p.plotResult(sim,include_history=False)
+            p.plotResult(sim,include_history=False,useLaTeX=use_latex)
             print('Plotting Completed Rank 0: Enjoy your day')
             sys.stdout.flush()
     except Exception:
@@ -235,8 +235,9 @@ if __name__=='__main__':
     parser.add_argument('--include-history',default=False,type=bool,help='Whether to include Layer simulation history in hdf5, Default=False')
     parser.add_argument('--pcn-pair-layers',default=False,type=bool,help='Whether pCN will be calculated each two consecutive layers, Default=False')
     parser.add_argument('--enable-beta-feedback',default=True,type=bool,help='Whether beta-feedback will be enabled, Default=False')
+    parser.add_argument('--use-latex',default=False,type=bool,help='Whether to use Latex for plotting or not, Default=False')
 
     args = parser.parse_args()
     runSimulations(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
                     kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=False,
-                    seed=args.seed,burn_percentage = args.burn_percentage,pcn_pair_layers=args.pcn_pair_layers,enable_beta_feedback=args.enable_beta_feedback)
+                    seed=args.seed,burn_percentage = args.burn_percentage,pcn_pair_layers=args.pcn_pair_layers,enable_beta_feedback=args.enable_beta_feedback,use_latex=args.use_latex)
