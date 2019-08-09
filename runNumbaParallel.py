@@ -177,9 +177,10 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
     comm.Reduce([uHalfVarImagCorrection,MPI.DOUBLE],uHalfVarImagSumCorr,MPI.SUM,root=0)
     comm.Reduce([utVarCorrection,MPI.DOUBLE],utVarSumCorr,MPI.SUM,root=0)
     comm.Reduce([elltVarCorrection,MPI.DOUBLE],elltVarSumCorr,MPI.SUM,root=0)
-    
-    if rank==0:
-        try:
+
+    try:
+        if rank==0:
+
             print('Final Analysis Completed at Rank 0')
             sys.stdout.flush()
             uHalfStdReal = np.sqrt((uHalfVarRealSum+uHalfVarRealSumCorr)/size)
@@ -196,11 +197,18 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
             p.plotResult(sim,include_history=False)
             print('Plotting Completed Rank 0: Enjoy your day')
             sys.stdout.flush()
-        except Exception:
-            print('Ups...')
-            sys.stdout.flush()
-        finally:
-            comm.Disconnect()
+    except Exception:
+        print('Ups problem in rank {0} '.format(rank))
+        sys.stdout.flush()
+        raise Exception
+    finally:
+        print('Disconnecting rank {0} '.format(rank))
+        sys.stdout.flush()
+        MPI.Finalize()
+        # comm.Disconnect()
+        
+        
+
         
 
     
