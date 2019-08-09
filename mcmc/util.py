@@ -13,7 +13,7 @@ import numba as nb
 import time
 import math
 FASTMATH=True
-PARALLEL = False
+PARALLEL = True
 CACHE=True
 # from numba import complex64, complex128, float32, float64, int32, jit, njit, prange
 SQRT2 = np.sqrt(2)
