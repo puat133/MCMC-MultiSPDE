@@ -16,6 +16,9 @@ fourier_type = nb.deferred_type()
 fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)    
 spec = [
     ('n_layers',nb.int64),
+    ('record_skip',nb.int64),
+    ('record_count',nb.int64),
+    ('max_record_history',nb.int64),
     ('beta',nb.float64),
     ('betaZ',nb.float64),
     ('random_gen',Rand_gen_type),
@@ -44,6 +47,9 @@ class pCN():
         self.aggresiveness = 0.2
         self.target_acceptance_rate = 0.234
         self.beta_feedback_gain = 2.1
+        self.record_skip = 1
+        self.record_count = 0
+        self.max_record_history = 1000000
         
 
 
@@ -104,8 +110,14 @@ class pCN():
                 accepted += 1
         
             
-            for i in range(self.n_layers):
-                Layers[i].record_sample()
+            # for i in range(self.n_layers):
+            #     Layers[i].record_sample()
+            #  only record when needed
+            if (self.record_count%self.record_skip) == 0:
+                # print('recorded')
+                for i in range(self.n_layers):
+                    Layers[i].record_sample()
+            self.record_count += 1
 
         return accepted
     
@@ -142,9 +154,12 @@ class pCN():
         else:
             accepted=0
         # self.gibbs_step +=1
-        
-        for i in range(self.n_layers):
-            Layers[i].record_sample()
+        # only record when needed
+        if (self.record_count%self.record_skip) == 0:
+            # print('recorded')
+            for i in range(self.n_layers):
+                Layers[i].record_sample()
+        self.record_count += 1
 
         return accepted
 

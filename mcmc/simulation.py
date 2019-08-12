@@ -140,10 +140,12 @@ class Simulation():
             lay.update_current_sample()
 
             if self.pcn_pair_layers:
-                lay.samples_history = np.empty((lay.n_samples*(self.n_layers-1), self.fourier.fourier_basis_number), dtype=np.complex128)
+                self.pcn.record_skip = np.max([1,(lay.n_samples*self.n_layers-1)//self.pcn.max_record_history])
+                history_length = np.min([lay.n_samples*(self.n_layers-1),self.pcn.max_record_history]) + 1 
             else:
-                lay.samples_history = np.empty((lay.n_samples, self.fourier.fourier_basis_number), dtype=np.complex128)
-
+                self.pcn.record_skip = np.max([1,lay.n_samples//self.pcn.max_record_history])
+                history_length = np.min([lay.n_samples,self.pcn.max_record_history]) + 1
+            lay.samples_history = np.empty((history_length, self.fourier.fourier_basis_number), dtype=np.complex128)
             Layers.append(lay)
                 
 
