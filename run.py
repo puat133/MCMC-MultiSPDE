@@ -4,6 +4,7 @@ import mcmc.plotting as p
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
+import parser_help as ph
 #%%
 # n = 2**6
 # kappa_default =1e17
@@ -13,7 +14,7 @@ import argparse
 # kappa = kappa_default/kappa_factor
 # sigma_0 = sigma_0_default*np.sqrt(kappa_factor)
 # sigma_v = sigma_v_default*np.sqrt(kappa_factor)
-
+#https://stackoverflow.com/a/36194213/11764120
 
     
 
@@ -40,14 +41,14 @@ if __name__=='__main__':
     parser.add_argument('--sigma-v',default=1e2,type=float,help='Sigma_v constant, Default=10.0')
     parser.add_argument('--sigma-scaling',default=1e-4,type=float,help='Sigma_scaling constant, Default=1e-4')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
-    parser.add_argument('--include-history',default=False,type=bool,help='Whether to include Layer simulation history in hdf5, Default=False')
-    parser.add_argument('--pcn-pair-layers',default=False,type=bool,help='Whether pCN will be calculated each two consecutive layers, Default=False')
-    parser.add_argument('--enable-beta-feedback',default=True,type=bool,help='Whether beta-feedback will be enabled, Default=False')
-    parser.add_argument('--print-progress',default=True,type=bool,help='Whether progress is printed, Default=True')
-    # parser.add_argument('--show-figures',default=True,type=bool,help='Whether to show simulation results figures or not, Default=True')
-    # parser.add_argument('--rand-vect-init',default=False,type=bool,help='Whether to preallocate random vector before running MCMC, Default=False')
-    # parser.add_argument('--init-file',default=None,type=str,help='Hdf5 file containing data set called cummMeanU, with size match parameter n, Default=None')
-    # parser.add_argument('--pcn',default=False,type=bool,help='Whether using preconditioned Crank Nicholson algorithm or HMC, Default=False')
+    # parser.add_argument('--include-history',default=False,type=bool,help='Whether to include Layer simulation history in hdf5, Default=False')
+    ph.add_boolean_argument(parser,'include-history',default=False,messages='Whether to include Layer simulation history in hdf5, Default=False')
+    # parser.add_argument('--pcn-pair-layers',default=False,type=bool,help='Whether pCN will be calculated each two consecutive layers, Default=False')
+    ph.add_boolean_argument(parser,'pcn-pair-layers',default=False,messages='Whether pCN will be calculated each two consecutive layers, Default=False')
+    # parser.add_argument('--enable-beta-feedback',default=True,type=bool,help='Whether beta-feedback will be enabled, Default=False')
+    ph.add_boolean_argument(parser,'enable-beta-feedback',default=True,messages='Whether beta-feedback will be enabled, Default=True')
+    # parser.add_argument('--print-progress',default=True,type=bool,help='Whether progress is printed, Default=True')
+    ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
 
     args = parser.parse_args()
     # (self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
@@ -59,3 +60,4 @@ if __name__=='__main__':
     sim.run()
     sim.analyze()
     p.plotResult(sim,include_history=args.include_history)
+
