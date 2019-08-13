@@ -16,7 +16,7 @@ import mcmc.simulationResults as simRes
 # import scipy as scp
 import time
 
-n_layers=2
+n_layers=3
 n_samples = 100000
 n = 2**6
 beta = 1
@@ -93,8 +93,8 @@ for i in range(n_layers):
     Layers.append(lay)
 
 
-#allowable methods: ‘Nelder-Mead’,‘Powell’,‘COBYLA’,‘trust-constr’,
-method = 'Powell'
+#allowable methods: ‘Nelder-Mead’,‘Powell’,‘COBYLA’,‘trust-constr’, '‘L-BFGS-B'
+method = 'L-BFGS-B'
 optimizer = optm.Optimizer(Layers,method=method)
 opt_Result = optimizer.optimize()
 u0_Half_optimized = optm.xToUHalf(opt_Result.x)
