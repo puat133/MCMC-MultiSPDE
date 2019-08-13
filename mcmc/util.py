@@ -152,4 +152,17 @@ def finalizeWelford(existingAggregate):
     # else:
     return (mean, variance)
 
+@njitParallel
+def extend(uSymmetric,num): 
+    n = (uSymmetric.shape[0]+1)//2
+    if num> n:
+        z = np.zeros(2*num-1,dtype=np.complex128)
+        z[(num-1)-(n-1):(num-1)+n] = uSymmetric
+        return z    
+    else: 
+        return uSymmetric
 
+@njitParallel
+def symmetrize(w_half):
+    w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
+    return w
