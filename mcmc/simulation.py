@@ -141,10 +141,10 @@ class Simulation():
 
             if self.pcn_pair_layers:
                 self.pcn.record_skip = np.max([1,(lay.n_samples*self.n_layers-1)//self.pcn.max_record_history])
-                history_length = np.min([lay.n_samples*(self.n_layers-1),self.pcn.max_record_history]) + 1 
+                history_length = np.min([lay.n_samples*(self.n_layers-1),self.pcn.max_record_history]) 
             else:
                 self.pcn.record_skip = np.max([1,lay.n_samples//self.pcn.max_record_history])
-                history_length = np.min([lay.n_samples,self.pcn.max_record_history]) + 1
+                history_length = np.min([lay.n_samples,self.pcn.max_record_history]) 
             lay.samples_history = np.empty((history_length, self.fourier.fourier_basis_number), dtype=np.complex128)
             Layers.append(lay)
                 
