@@ -9,6 +9,7 @@ spec = [
     ('t_start', nb.float64),               
     ('dt', nb.float64),
     ('t', nb.float64[:]),
+    ('index', nb.int64[:,:]),
     ('Dmatrix', nb.float64[:,:]),
     ('Imatrix', nb.float64[:,:]),
     ('cosFun', nb.float64[:,:]),          
@@ -40,6 +41,7 @@ class FourierAnalysis:
             self.eigenFun[i,:] = util.eigenFunction1D(-i,self.t) 
             self.cosFun[i,:] = np.cos(2*np.pi*self.t*i)
             self.sinFun[i,:] = np.sin(2*np.pi*self.t*i)
+        self.index = self.createUindex()
         self.prepared = True
 
     
@@ -92,3 +94,18 @@ class FourierAnalysis:
         temp = fun(self.inverseFourierLimited(uHalf))
         temp2 = self.fourierTransformHalf(temp)
         return self.constructU(temp2)
+
+    def createUindex(self):
+        shape = (2*self.fourier_basis_number-1,2*self.fourier_basis_number-1)
+        index = np.zeros(shape,dtype=np.int64)
+        for i in nb.prange(2*self.fourier_basis_number-1):
+            for j in nb.prange(2*self.fourier_basis_number-1):
+                index[i,j] = (i-j)+(2*self.fourier_basis_number-1)
+        return index
+
+    def constructU_with_Index(self,uHalf):
+        uprepared = util.extend(util.symmetrize(uHalf),2*self.fourier_basis_number)
+        # with nb.objmode(U='complex128[:,:]'):
+            # res = u.extend2D(symmetrize_2D(uHalf),2*n-1)[index]
+        U = uprepared[self.index]
+        return U
