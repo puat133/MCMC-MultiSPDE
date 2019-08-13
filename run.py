@@ -43,6 +43,7 @@ if __name__=='__main__':
     parser.add_argument('--include-history',default=False,type=bool,help='Whether to include Layer simulation history in hdf5, Default=False')
     parser.add_argument('--pcn-pair-layers',default=False,type=bool,help='Whether pCN will be calculated each two consecutive layers, Default=False')
     parser.add_argument('--enable-beta-feedback',default=True,type=bool,help='Whether beta-feedback will be enabled, Default=False')
+    parser.add_argument('--print-progress',default=True,type=bool,help='Whether progress is printed, Default=True')
     # parser.add_argument('--show-figures',default=True,type=bool,help='Whether to show simulation results figures or not, Default=True')
     # parser.add_argument('--rand-vect-init',default=False,type=bool,help='Whether to preallocate random vector before running MCMC, Default=False')
     # parser.add_argument('--init-file',default=None,type=str,help='Hdf5 file containing data set called cummMeanU, with size match parameter n, Default=None')
@@ -52,7 +53,7 @@ if __name__=='__main__':
     # (self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
     #                 seed,burn_percentage)
     sim = s.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
-                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=True,
+                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
                     seed=args.seed,burn_percentage = args.burn_percentage,pcn_pair_layers=args.pcn_pair_layers,enable_beta_feedback=args.enable_beta_feedback)
     sim.pcn.beta_feedback_gain = 2.1
     sim.run()
