@@ -2,7 +2,8 @@ import numpy as np
 import numba as nb
 import matplotlib.pyplot as plt
 import seaborn as sns
-from numba.typed import List
+import importlib
+# from numba.typed import List
 # from numba.typed import List
 import mcmc.util as util
 import mcmc.fourier as fourier
@@ -16,7 +17,7 @@ import mcmc.simulationResults as simRes
 # import scipy as scp
 import time
 
-n_layers=3
+n_layers=2
 n_samples = 100000
 n = 2**6
 beta = 1
@@ -61,7 +62,13 @@ pcn = pCN.pCN(n_layers,random_gen,measurement,f,beta)
 
 #initialize Layers
 # n_layers = 2
-Layers = List()
+# Layers = List()
+typed_list_status = importlib.util.find_spec('numba.typed.typedlist')
+if typed_list_status is None:
+    Layers = []
+else:
+    from numba.typed.typedlist import List
+    Layers = List()
 # factor = 1e-8
 for i in range(n_layers):
     if i==0:
@@ -95,24 +102,29 @@ for i in range(n_layers):
 
 #allowable methods: ‘Nelder-Mead’,‘Powell’,‘COBYLA’,‘trust-constr’, '‘L-BFGS-B'
 method = 'L-BFGS-B'
-optimizer = optm.Optimizer(Layers,method=method)
+optimizer = optm.Optimizer(Layers,method=method,max_iter=1000000)
 opt_Result = optimizer.optimize()
-u0_Half_optimized = optm.xToUHalf(opt_Result.x)
-Layers[0].new_sample = u0_Half_optimized
-Layers[0].new_sample_symmetrized = Layers[0].pcn.random_gen.symmetrize(Layers[0].new_sample)
-Layers[0].new_sample_scaled_norm = util.norm2(Layers[0].new_sample/Layers[0].stdev)
+uHalf_all = optm.xToUHalf(opt_Result.x)
+Layers[0].new_sample = uHalf_all[0:n]
 Layers[0].update_current_sample()
 for i in range(1,len(Layers)):
-    Layers[i].LMat.construct_from(Layers[i-1].new_sample)
-    Layers[i].new_log_L_det = np.linalg.slogdet(Layers[i].LMat.latest_computed_L)[1]
-    Layers[i].LMat.set_current_L_to_latest()
-    Layers[i].sample()
-    Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_symmetrized)
+    if i== len(Layers)-1:
+        wNew = util.symmetrize(uHalf_all[n*(i-1):n*i])
+        eNew = np.random.randn(Layers[i].pcn.measurement.num_sample)
+        wBar = np.concatenate((eNew,wNew))
+        
+        LBar = np.vstack((Layers[i].pcn.H,Layers[i].LMat.current_L))
+        Layers[i].new_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,Layers[i].pcn.yBar-wBar )#,rcond=None)
+        Layers[i].new_sample = Layers[i].new_sample_symmetrized[Layers[i].pcn.fourier.fourier_basis_number-1:]
+    else:
+        uHalf_i = uHalf_all[n*(i-1):n*i]
+        Layers[i].new_sample = uHalf_i
+    Layers[i].new_sample = uHalf_all[n*(i-1):i*n]
     Layers[i].update_current_sample()
     # negLogPost += 0.5*Layers[i].current_sample_scaled_norm
     # negLogPost -= Layers[i].current_log_L_det
 plt.figure()
 plt.plot(measurement.t,f.inverseFourierLimited(Layers[-1].current_sample))
 plt.figure()
-plt.plot(measurement.t,np.exp(-f.inverseFourierLimited(u0_Half_optimized)))
+plt.plot(measurement.t,np.exp(-f.inverseFourierLimited(Layers[0].current_sample)))
 plt.show()
