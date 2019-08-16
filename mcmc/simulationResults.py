@@ -15,8 +15,8 @@ import seaborn as sns
 
 specResult = [
     # ('t',nb.float64[:]),
-    # ('fourier_basis_number',nb.int64),
-    # ('fourier_extended_basis_number',nb.int64),
+    # ('basis_number',nb.int64),
+    # ('extended_basis_number',nb.int64),
     ('vtHalf',nb.complex128[:]),
     ('vtF',nb.float64[:]),
     ('uHalfMean',nb.complex128[:,:]),
@@ -34,8 +34,8 @@ specResult = [
 class SimulationResult():
     def __init__(self):
                 # self.t = t
-                # self.fourier_basis_number = fourier_basis_number
-                # self.fourier_extended_basis_number = fourier_extended_basis_number
+                # self.basis_number = basis_number
+                # self.extended_basis_number = extended_basis_number
                 self.vtHalf = np.empty((2),dtype=np.complex128)
                 self.vtF = np.empty((2),dtype=np.float64)
                 #for two D matrix, numba does not really now how to assign properly at this stage so:
@@ -67,8 +67,8 @@ class SimulationResult():
 
 # specResult = [
 #     # ('t',nb.float64[:]),
-#     # ('fourier_basis_number',nb.int64),
-#     # ('fourier_extended_basis_number',nb.int64),
+#     # ('basis_number',nb.int64),
+#     # ('extended_basis_number',nb.int64),
 #     ('vtHalf',nb.complex128[:]),
 #     ('vtF',nb.float64[:]),
 #     ('vHalfMean',nb.complex128[:]),
@@ -88,8 +88,8 @@ class SimulationResult():
 #     vtHalf,vtF,vHalfMean,vHalfStdReal,vHalfStdImag,
 #                 lMean,lStd,vtMean,vtStd):
 #                 # self.t = t
-#                 # self.fourier_basis_number = fourier_basis_number
-#                 # self.fourier_extended_basis_number = fourier_extended_basis_number
+#                 # self.basis_number = basis_number
+#                 # self.extended_basis_number = extended_basis_number
 #                 self.vtHalf = vtHalf
 #                 self.vtF = vtF
 #                 self.vHalfMean = vHalfMean

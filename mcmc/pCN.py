@@ -41,8 +41,8 @@ class pCN():
         self.random_gen = rg
         self.measurement = measurement
         self.fourier = f
-        self.H = self.measurement.get_measurement_matrix(self.fourier.fourier_basis_number)/self.measurement.stdev
-        self.yBar = np.concatenate((self.measurement.yt/self.measurement.stdev,np.zeros(2*self.fourier.fourier_basis_number-1)))
+        self.H = self.measurement.get_measurement_matrix(self.fourier.basis_number)/self.measurement.stdev
+        self.yBar = np.concatenate((self.measurement.yt/self.measurement.stdev,np.zeros(2*self.fourier.basis_number-1)))
         self.gibbs_step = 0
         self.aggresiveness = 0.2
         self.target_acceptance_rate = 0.234

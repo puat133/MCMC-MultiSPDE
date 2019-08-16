@@ -29,8 +29,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
         
 
 
-        # n = sim.fourier.fourier_basis_number
-        # numNew = sim.fourier.fourier_extended_basis_number
+        # n = sim.fourier.basis_number
+        # numNew = sim.fourier.extended_basis_number
     if save_hdf5:
         #save Simulation Result
         sim.save(str(simResultPath/'result.hdf5'),include_history)

@@ -48,16 +48,16 @@ class Layer():
         self.pcn = pcn
 
         
-        # self.current_sample = np.zeros(f.fourier_basis_number,dtype=np.complex128)
-        zero_compl_dummy =  np.zeros(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
-        ones_compl_dummy =  np.ones(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
+        # self.current_sample = np.zeros(f.basis_number,dtype=np.complex128)
+        zero_compl_dummy =  np.zeros(self.pcn.fourier.basis_number,dtype=np.complex128)
+        ones_compl_dummy =  np.ones(self.pcn.fourier.basis_number,dtype=np.complex128)
 
         self.stdev = ones_compl_dummy
-        self.samples_history = np.empty((self.n_samples, self.pcn.fourier.fourier_basis_number), dtype=np.complex128)
+        self.samples_history = np.empty((self.n_samples, self.pcn.fourier.basis_number), dtype=np.complex128)
         
         #dummy declaration
         fpcn = self.pcn.fourier
-        f = fourier.FourierAnalysis(fpcn.fourier_basis_number,fpcn.fourier_extended_basis_number,fpcn.t_start,fpcn.t_end)#numba cannot understand without this
+        f = fourier.FourierAnalysis(fpcn.basis_number,fpcn.extended_basis_number,fpcn.t_start,fpcn.t_end)#numba cannot understand without this
         LMat = L.Lmatrix(f,self.sqrt_beta)
         # LMat.fourier = self.pcn.fourier
         self.LMat = LMat
@@ -78,11 +78,11 @@ class Layer():
             
 
         else:
-            zero_init = np.zeros(self.pcn.fourier.fourier_basis_number,dtype=np.complex128)
+            zero_init = np.zeros(self.pcn.fourier.basis_number,dtype=np.complex128)
             self.LMat.construct_from(init_sample)
             self.LMat.set_current_L_to_latest()
             self.new_sample_symmetrized = np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
-            self.new_sample = self.new_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
+            self.new_sample = self.new_sample_symmetrized[self.pcn.fourier.basis_number-1:]
             self.new_sample_scaled_norm = util.norm2(self.LMat.current_L@self.new_sample_symmetrized)#ToDO: Modify this
             self.new_log_L_det = self.LMat.logDet()#ToDO: Modify this
             # #numba need this initialization. otherwise it will not compile
@@ -106,7 +106,7 @@ class Layer():
 
             #update v
             self.new_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar )#,rcond=None)
-            self.new_sample = self.new_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
+            self.new_sample = self.new_sample_symmetrized[self.pcn.fourier.basis_number-1:]
             # return new_sample
         elif self.order_number == 0:
             self.new_sample = self.pcn.betaZ*self.current_sample + self.pcn.beta*self.stdev*self.pcn.random_gen.construct_w_half()
@@ -114,15 +114,15 @@ class Layer():
         else:
             self.new_sample_symmetrized = self.pcn.betaZ*self.current_sample_symmetrized + self.pcn.beta*np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
             # self.new_sample_symmetrized = np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
-            self.new_sample = self.new_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
+            self.new_sample = self.new_sample_symmetrized[self.pcn.fourier.basis_number-1:]
 
        
     def sample_one_element(self,element_index):
         "Only valid if self.is_stationary == True"
-        if self.is_stationary and 0 <= element_index< self.pcn.fourier.fourier_basis_number:
+        if self.is_stationary and 0 <= element_index< self.pcn.fourier.basis_number:
                 if element_index == 0:
                     w = np.random.randn()
-                elif element_index < self.pcn.fourier.fourier_basis_number:
+                elif element_index < self.pcn.fourier.basis_number:
                     w = (np.random.randn()+1j*np.random.randn())/np.sqrt(2)
                 self.new_sample = self.current_sample.copy()
                 self.new_sample[element_index] = self.pcn.betaZ*self.current_sample[element_index] + self.pcn.beta*self.stdev[element_index]*w

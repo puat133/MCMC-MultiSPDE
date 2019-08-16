@@ -7,8 +7,8 @@ import numpy as np
 setup(
     ext_modules = 
     cythonize(
-        Extension("radon_matrix",
-        sources=["radon_matrix.pyx"],
+        Extension("matrices",
+        sources=["matrices.pyx"],
         extra_link_args=["-O3","-fopenmp"],
         language="c++",
         extra_compile_args=["-O3", "-march=native","-fopenmp"],

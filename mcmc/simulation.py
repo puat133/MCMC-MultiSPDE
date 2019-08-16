@@ -87,7 +87,7 @@ class Simulation():
         f =  fourier.FourierAnalysis(n,num,self.t_start,self.t_end)
         self.fourier = f
         
-        rg = randomGenerator.RandomGenerator(f.fourier_basis_number)
+        rg = randomGenerator.RandomGenerator(f.basis_number)
         self.random_gen = rg
         
 
@@ -95,7 +95,7 @@ class Simulation():
         Lu = LuReal + 1j*np.zeros(LuReal.shape)
         
         uStdev = -1/np.diag(Lu)
-        uStdev = uStdev[self.fourier.fourier_basis_number-1:]
+        uStdev = uStdev[self.fourier.basis_number-1:]
         uStdev[0] /= 2 #scaled
 
         meas_std = 0.1
@@ -116,7 +116,7 @@ class Simulation():
         # factor = 1e-8
         for i in range(self.n_layers):
             if i==0:
-                init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.fourier_basis_number-1:]
+                init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.basis_number-1:]
                 lay = layer.Layer(True,self.sqrtBeta_0,i,self.n_samples,self.pcn,init_sample)
                 lay.stdev = uStdev
                 lay.current_sample_scaled_norm = util.norm2(lay.current_sample/lay.stdev)#ToDO: Modify this
@@ -134,7 +134,7 @@ class Simulation():
 
                     #update v
                     lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
-                    lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.fourier_basis_number-1:]
+                    lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.basis_number-1:]
                 else:
                     lay = layer.Layer(False,self.sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
@@ -145,7 +145,7 @@ class Simulation():
             else:
                 self.pcn.record_skip = np.max([1,lay.n_samples//self.pcn.max_record_history])
                 history_length = np.min([lay.n_samples,self.pcn.max_record_history]) 
-            lay.samples_history = np.empty((history_length, self.fourier.fourier_basis_number), dtype=np.complex128)
+            lay.samples_history = np.empty((history_length, self.fourier.basis_number), dtype=np.complex128)
             Layers.append(lay)
                 
 
@@ -172,7 +172,7 @@ class Simulation():
         
         for i in range(self.n_samples):#nb.prange(nSim):
             accepted_count_partial += self.pcn.oneStep(self.Layers)
-            # for j in range(self.fourier.fourier_basis_number):
+            # for j in range(self.fourier.basis_number):
                 # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
             if (i+1)%(self.evaluation_interval) == 0:
                 self.accepted_count += accepted_count_partial
@@ -190,7 +190,7 @@ class Simulation():
                     elif self.acceptancePercentage<0.3:
                         self.pcn.less_aggresive()
                 #TODO: toggle this if pcn.one_step_one_element is not used
-                # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.fourier_basis_number)
+                # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.basis_number)
                 
                 
                 
@@ -243,23 +243,23 @@ class Simulation():
 
         
 
-        uHalfRealM = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
-        uHalfRealM2 = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfRealM = np.zeros((self.n_layers,self.fourier.basis_number),dtype=np.float64)
+        uHalfRealM2 = np.zeros((self.n_layers,self.fourier.basis_number),dtype=np.float64)
         uHalfRealCount = np.zeros(self.n_layers)
         uHalfRealAggregateNow=[] 
         for i in range(self.n_layers):
             uHalfRealAggregate_Layer_i_Now = (uHalfRealCount[i],uHalfRealM[i,:],uHalfRealM2[i,:])
             uHalfRealAggregateNow.append(uHalfRealAggregate_Layer_i_Now) 
 
-        uHalfImagM = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
-        uHalfImagM2 = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfImagM = np.zeros((self.n_layers,self.fourier.basis_number),dtype=np.float64)
+        uHalfImagM2 = np.zeros((self.n_layers,self.fourier.basis_number),dtype=np.float64)
         uHalfImagCount = np.zeros(self.n_layers)
         uHalfImagAggregateNow=[] 
         for i in range(self.n_layers):
             uHalfImagAggregate_Layer_i_Now = (uHalfImagCount[i],uHalfImagM[i,:],uHalfImagM2[i,:])
             uHalfImagAggregateNow.append(uHalfImagAggregate_Layer_i_Now) 
 
-        sigmas = util.sigmasLancos(self.fourier.fourier_basis_number)
+        sigmas = util.sigmasLancos(self.fourier.basis_number)
 
         vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)
         vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
@@ -280,9 +280,9 @@ class Simulation():
         utVar = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
         elltMean = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
         elltVar = np.zeros((self.n_layers,self.pcn.measurement.t.shape[0]),dtype=np.float64)
-        uHalfMean = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.complex128)
-        uHalfRealVar = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
-        uHalfImagVar = np.zeros((self.n_layers,self.fourier.fourier_basis_number),dtype=np.float64)
+        uHalfMean = np.zeros((self.n_layers,self.fourier.basis_number),dtype=np.complex128)
+        uHalfRealVar = np.zeros((self.n_layers,self.fourier.basis_number),dtype=np.float64)
+        uHalfImagVar = np.zeros((self.n_layers,self.fourier.basis_number),dtype=np.float64)
         for j in range(self.n_layers):
             utMean[j,:] = utAggregateNow[j][1]
             utVar[j,:] = utAggregateNow[j][2]/utAggregateNow[j][0]

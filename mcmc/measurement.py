@@ -54,11 +54,12 @@ class Measurement():
         e = self.stdev*np.random.randn(self.vt.shape[0])
         self.yt = self.vt+e
 
-    def get_measurement_matrix(self,fourier_basis_number):
+    def get_measurement_matrix(self,basis_number):
         phi = util.eigenFunction1D
-        H = np.zeros((self.t.shape[0],2*fourier_basis_number-1),dtype=np.complex128)
-        for i in range(-(fourier_basis_number-1),fourier_basis_number):
+        H = np.zeros((self.t.shape[0],2*basis_number-1),dtype=np.complex128)
+        for i in range(-(basis_number-1),basis_number):
             # for j in range(t.shape[0]):       
-            H[:,i+fourier_basis_number-1] = phi(i,self.t)
+            H[:,i+basis_number-1] = phi(i,self.t)
                 # np.exp(2*np.pi*1j*j*t[i])
         return H
+

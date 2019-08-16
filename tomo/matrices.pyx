@@ -1,5 +1,3 @@
-#adapted from https://github.com/suurj/tomo/matrix.pyx
-
 import numpy as np
 cimport numpy as np
 cimport cython
@@ -15,6 +13,130 @@ import time
 from cython.parallel import threadid as thid
 from libc.stdlib cimport malloc 
 
+
+# Calculate total 2D DWT matrix. The matrix must operate to a row-major order vectorized image.
+# This is based on the following paper: 
+# 2-D Wavelet Transforms in the Form of Matrices and Application in Compressed Sensing (Huiyuan Wang and José Vieira) 
+# Proceedings of the 8th
+# World Congress on Intelligent Control and Automation
+# Wavelet boundary condition is periodization.
+# 
+def totalmatrix(n,levels,g,h):
+    if (levels<1 or np.mod(n,2**levels) != 0 ):
+        raise Exception('DWT level mismatch.')
+
+    Gs = []
+    Hs = []
+    Hprev = []
+    for i in range(0,levels):
+        Gi, Hi = waveletonce(g, h, int(n/(2**(i))))
+        Gs.append(Gi)
+        Hs.append(Hi)
+        if (len(Hprev) == 0):
+            Hprev.append(Hi)
+        else:
+            Hprev.append(Hi.dot(Hprev[i-1]))
+
+    for i in range(0,levels-1):
+        if (i == 0):
+            M = sp.kron(Gs[i],Gs[i])
+            M = sp.vstack((sp.kron(Gs[0],Hs[0]),M))
+            M = sp.vstack((sp.kron(Hs[0], Gs[0]), M))
+        else:
+            p = Hprev[i-1]
+            gp = Gs[i].dot(p)
+            hp = Hs[i].dot(p)
+            M = sp.vstack((sp.kron(gp,gp),M))
+            M = sp.vstack((sp.kron(gp, hp), M))
+            M = sp.vstack((sp.kron(hp, gp), M))
+
+    if (levels ==1):
+        gp = Gs[0]
+        hp = Hs[0]
+        M = sp.kron(gp, gp)
+        M = sp.vstack((sp.kron(gp, hp), M))
+        M = sp.vstack((sp.kron(hp, gp), M))
+        M = sp.vstack((sp.kron(hp, hp), M))
+    else:
+        p = Hprev[levels - 2]
+        gp = Gs[levels-1].dot(p)
+        hp = Hs[levels-1].dot(p)
+        M = sp.vstack((sp.kron(gp, gp), M))
+        M = sp.vstack((sp.kron(gp, hp), M))
+        M = sp.vstack((sp.kron(hp, gp), M))
+        M = sp.vstack((sp.kron(hp, hp), M))
+
+    return  csc_matrix(M)
+
+# This function returns modulo, which returns only nonnegative values (contrary to the C's basic method).
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+cdef inline int modulo (int x, int y) nogil:
+    return (x % y + y) %y
+
+# Matrices for one level DWT.
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+def waveletonce(g,h,n):
+    cdef int nsig = n 
+    cdef int nhalf = n/2
+    g = np.ravel(g)
+    h = np.ravel(h)
+    cdef int fl = g.shape[0]  
+    cdef int fl2 = fl/2
+    if ((np.mod(n,2) != 0) or (np.mod(h.shape[0],2) != 0 ) or (np.mod(g.shape[0],2) != 0 ) or (g.shape[0] != h.shape[0])):
+        raise Exception('Signal or filter length is not divisible by 2.')
+        
+    fg = np.flip(g,0)
+    fh = np.flip(h,0)
+    cdef double [:] fgv  = fg
+    cdef double [:] fhv  = fh
+    cdef int row, col, i,c
+    cdef vector[int] Wrow
+    cdef vector[int] Wcol
+    cdef vector[double] Gdata
+    cdef vector[double] Hdata
+    with nogil:
+        for row in range(0,nhalf):
+            for col in range (0,fl):
+                c = modulo(-fl2 + col +1 + (row) * 2,nsig)
+                Wrow.push_back(row)
+                Wcol.push_back(c)
+                Hdata.push_back(fgv[col])
+                Gdata.push_back(fhv[col])
+    
+    
+    cdef int Nel = Wrow.size()
+    coo_row  = np.zeros((Nel,),dtype=np.int32)
+    cdef int [:] coo_rowv  = coo_row
+    coo_col  = np.zeros((Nel,),dtype=np.int32)
+    cdef int [:] coo_colv  = coo_col
+    Hcoo_data = np.zeros((Nel,))
+    Gcoo_data = np.zeros((Nel,))
+    cdef double [:] Hcoo_datav  = Hcoo_data
+    cdef double [:] Gcoo_datav  = Gcoo_data
+
+    for i in range(Nel):
+        coo_rowv[i] = Wrow.back()
+        Wrow.pop_back()
+        
+        coo_colv[i] = Wcol.back()
+        Wcol.pop_back()
+
+        Hcoo_datav[i] = Hdata.back()
+        Hdata.pop_back()
+        Gcoo_datav[i] = Gdata.back()
+        Gdata.pop_back()
+    
+    
+    G=coo_matrix((Gcoo_data, (coo_row, coo_col)), shape=(nhalf,n))
+    H=coo_matrix((Hcoo_data, (coo_row, coo_col)), shape=(nhalf,n))
+    
+    return (G,H)  
+
+
 # Construct a discrete Radon transform matrix.
 # The method is from Peter Thoft's PhD thesis The Radon Transform - Theory and Implementation: https://orbit.dtu.dk/files/5529668/Binder1.pdf
 # The result is a matrix of ceil(sqrt(2)xN)xT x NxN. Four points are used in first order pixel oriented interpolation within each pixel's neighbourhood.
@@ -25,7 +147,7 @@ cdef double MP4 = M_PI/4.0
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True) 
-def radonmatrix(size,theta,Nthreads=4):
+def  radonmatrix(size,theta,Nthreads=4):
   
     cdef int Nth = Nthreads
     cdef int i
@@ -61,12 +183,12 @@ def radonmatrix(size,theta,Nthreads=4):
         dt = 0
     else:
         dt = (theta[1]-theta[0])
-        
-    # One might comment out the first ray row or alternatively 
-    # comment out the followinf five and comment the first one. Averaging four values
+         
+    # There are three options how a Radon operator is made. One might comment in the first ray row, the five rows after it  or alternatively 
+    # the last three ones. Averaging four line integral values
     # might lead to more realistic sinogram with large dimensions and angles and it would make the operator denser.
-    # However, the averaging might make the sinogram perhaps worse with sparse angles (at least the angle averaging should be reconsidered one should use rhoo
-    # averaging only).
+    # However, the averaging might make the sinogram perhaps worse with sparse angles (at least the angle averaging should be skipped and one should use rhoo
+    # averaging only, i.e. comment in the last three ray rows).
     # See Peter Thoft's PhD thesis above
     # (First order pixel oriented interpolation).
     start = time.time() 
@@ -77,11 +199,17 @@ def radonmatrix(size,theta,Nthreads=4):
                 for n in range (0,N):
                     for m in range( 0,M):
                         ray = dx/2.0 * gs(2.0*(pmin+r*dp -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        
                         #ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
                         #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
                         #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
                         #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
                         #ray = ray/4.0
+                        
+                        #ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        #ray = ray/2.0
+                        
                         if(ray > 0.0):
                             th = thid()
                             row[th].push_back(r*T+t)
@@ -89,7 +217,7 @@ def radonmatrix(size,theta,Nthreads=4):
                             data[th].push_back(ray) 
 
             
-    print("Radon matrix was constructed in " + str(time.time()-start) + " seconds")     
+    print("Radon transform matrix operator was constructed in " + str(time.time()-start) + " seconds.")     
      
     cdef int Nel = 0
     for i in range(0,Nth):
@@ -122,7 +250,7 @@ def radonmatrix(size,theta,Nthreads=4):
     radonM = csc_matrix(radonM)
     
     return radonM 
-
+ 
 # Function which is called, when Radon operator matrix is constucted.
 @cython.boundscheck(False) 
 @cython.wraparound(False)
