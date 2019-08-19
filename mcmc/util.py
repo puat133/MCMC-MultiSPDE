@@ -99,7 +99,7 @@ def norm2(u):
     """
     norm2=0
     for i in nb.prange(len(u)):
-        norm2 += u[i].imag**2 + u[i].real**2
+        norm2 += u[i].imag*u[i].imag + u[i].real*u[i].real
     return norm2
 
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
@@ -166,3 +166,38 @@ def extend(uSymmetric,num):
 def symmetrize(w_half):
     w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
     return w
+
+#@njitParallel
+def random_kaczmarz(A,b,tolerance):
+    m = A.shape[0]
+    n = A.shape[1]
+    if m != b.shape[0]:
+        raise Exception("Matrix and vector size missmatch")
+    
+    #set initial condition:
+    x = np.random.randn(n)
+    #computing probability of each row
+    prob_row = np.zeros(m,dtype=np.float64)
+    A_row_squared_norm = np.zeros(m,dtype=np.float64)
+    for i in nb.prange(m):
+        A_row_squared_norm[i] = norm2(A[i,:])
+            
+    prob_row = A_row_squared_norm/np.sum(A_row_squared_norm)
+    cum_prob_row = np.zeros(m+1,dtype=np.float64)
+    for i in nb.prange(m):
+        cum_prob_row[i+1] = cum_prob_row[i]+prob_row[i]
+        
+    error = norm2(A@x - b)
+    while(error>tolerance):
+        i = get_random_index(cum_prob_row,np.random.rand(),m)
+        x = x + (b[i] - inner(A[i,:],x.conj()) )*A[i,:]/A_row_squared_norm[i]
+        error = norm2(A@x - b)
+        print('error = {0}, i = {1}'.format(error,i))
+    return x,error
+    
+@njitSerial       
+def get_random_index(cum_prob_row,randNumber,m):
+    i = 0
+    while cum_prob_row[i]<randNumber and i<m-1:
+        i +=1
+    return i
