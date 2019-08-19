@@ -184,8 +184,9 @@ def random_kaczmarz(A,b,tolerance):
             
     prob_row = A_row_squared_norm/np.sum(A_row_squared_norm)
     cum_prob_row = np.zeros(m+1,dtype=np.float64)
-    for i in nb.prange(m):
-        cum_prob_row[i+1] = cum_prob_row[i]+prob_row[i]
+    cum_prob_row[0] = prob_row[0]
+    for i in nb.prange(1,m):
+        cum_prob_row[i] = cum_prob_row[i-1]+prob_row[i-1]
         
     error = norm2(A@x - b)
     while(error>tolerance):
