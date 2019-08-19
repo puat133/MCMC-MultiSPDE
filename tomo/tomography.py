@@ -94,9 +94,9 @@ class Tomograph:
         measurement_matrix_file_name = 'measurement_matrix_{0}_{1}x{2}.npz'.format(str(self.basis_number),str(self.dim), str(self.theta.shape[0]))
         self.measurement_matrix_file = matrix_folder/measurement_matrix_file_name
         if not (self.measurement_matrix_file).exists():
-            H = self.constructH()
-            self.H = H.astype(np.complex64)
-            np.savez_compressed(self.measurement_matrix_file,H=self.H)
+            self.H = self.constructH()
+            # self.H = H.astype(np.complex64)
+            np.savez_compressed(self.measurement_matrix_file,H=self.H.astype(np.complex64))
             # self.H = sp.csc_matrix(H)
             # sp.save_npz(measurement_matrix_file,self.H)
         else:
