@@ -49,6 +49,7 @@ if __name__=='__main__':
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=True,messages='Whether beta-feedback will be enabled, Default=True')
     # parser.add_argument('--print-progress',default=True,type=bool,help='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
+    ph.add_boolean_argument(parser,'use-latex',default=True,messages='Whether latex is used during results plotting, Default=True')
 
     args = parser.parse_args()
     # (self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
@@ -59,5 +60,5 @@ if __name__=='__main__':
     sim.pcn.beta_feedback_gain = 2.1
     sim.run()
     sim.analyze()
-    p.plotResult(sim,include_history=args.include_history)
+    p.plotResult(sim,include_history=args.include_history,useLaTeX=False)
 
