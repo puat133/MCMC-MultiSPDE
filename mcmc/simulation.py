@@ -310,22 +310,22 @@ class Simulation():
                     f.create_dataset(key,data=value)
                 else:
                     if key == 'sim_result':
-                        f.create_dataset('vtHalf',data=value.vtHalf)
-                        f.create_dataset('vtF',data=value.vtF)
-                        f.create_dataset('uHalfMean',data=value.uHalfMean)
-                        f.create_dataset('uHalfStdReal',data=value.uHalfStdReal)
-                        f.create_dataset('uHalfStdImag',data=value.uHalfStdImag)
-                        f.create_dataset('elltMean',data=value.elltMean)
-                        f.create_dataset('elltStd',data=value.elltStd)
-                        f.create_dataset('utMean',data=value.utMean)
-                        f.create_dataset('utStd',data=value.utStd)
+                        f.create_dataset('vtHalf',data=value.vtHalf,compression='lzf')
+                        f.create_dataset('vtF',data=value.vtF,compression='lzf')
+                        f.create_dataset('uHalfMean',data=value.uHalfMean,compression='lzf')
+                        f.create_dataset('uHalfStdReal',data=value.uHalfStdReal,compression='lzf')
+                        f.create_dataset('uHalfStdImag',data=value.uHalfStdImag,compression='lzf')
+                        f.create_dataset('elltMean',data=value.elltMean,compression='lzf')
+                        f.create_dataset('elltStd',data=value.elltStd,compression='lzf')
+                        f.create_dataset('utMean',data=value.utMean,compression='lzf')
+                        f.create_dataset('utStd',data=value.utStd,compression='lzf')
                         continue
                     if key == 'pcn':
                         f.create_dataset('beta',data=value.beta)
                         continue
                     if include_history and key == 'Layers':
                         for i in range(self.n_layers):
-                            f.create_dataset('Layer - {0} samples'.format(i),data=value[i].samples_history)
+                            f.create_dataset('Layer - {0} samples'.format(i),data=value[i].samples_history,compression='lzf')
                     
             
                     
