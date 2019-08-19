@@ -120,6 +120,7 @@ def _constructH(radonoperator,n_r,n_theta,tx,ty,ix,iy):
     for i in nb.prange(ix.shape[0]):
         #TODO: this is point measurement, change this to a proper H
         # eigenSlice = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
+        # H[i,:] = eigenslice@radonoperator
         H[i,:] = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
     return H.T
 
