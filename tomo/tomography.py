@@ -17,6 +17,7 @@ import argparse
 import pathlib
 
 import numba as nb
+from skimage.transform._warps_cy import _warp_fast
 import mcmc.util as util
 import mcmc.util_2D as u2
 import mcmc.L as L
@@ -107,6 +108,7 @@ class Tomograph:
 
     def constructH(self):
         return _constructH(self.radonoperator,self.n_r,self.n_theta,self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
+        # return _constructH(self.theta,self.r,self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
 
 @jitParallel
 def _constructH(radonoperator,n_r,n_theta,tx,ty,ix,iy):
@@ -114,12 +116,14 @@ def _constructH(radonoperator,n_r,n_theta,tx,ty,ix,iy):
     (iX,iY) are meshgrid for Fourier Index
     (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
     """
-    H = np.empty((ix.shape[0],n_r*n_theta),dtype=np.complex64)
+    H = np.empty((ix.shape[0],tx.shape),dtype=np.complex64)
     for i in nb.prange(ix.shape[0]):
-        eigenSlice = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
-        H[i,:] = eigenSlice@radonoperator
+        #TODO: this is point measurement, change this to a proper H
+        # eigenSlice = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
+        H[i,:] = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
     return H.T
-    
+
+
 class pCN():
     def __init__(self,n_layers,rg,tomograph,f,beta=1):
         self.n_layers = n_layers
@@ -285,7 +289,4 @@ class Layer():
 
 
 
-
-# if __name__=='__main__':
-    
 
