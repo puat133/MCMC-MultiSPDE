@@ -35,3 +35,21 @@ def autocorr(uHalfHistory):
                 xcorr[i,j] = np.sum(uHalfNormalized[j:,i]*uHalfNormalized[:-j,i].conj()).real/(length*uHalfVar[i])
         
     return xcorr
+
+@njitParallel
+def autocorr_2(uHalfNormalized,uHalfVar):
+    length = uHalfNormalized.shape[0]
+    nFourier = uHalfNormalized.shape[1]
+#    uHalfMean = np.mean(uHalfHistory,axis=0)
+#    uHalfNormalized = uHalfHistory - uHalfMean
+#    uHalfVar = np.var(uHalfHistory,axis=0)
+    xcorr = np.zeros((nFourier,length),dtype=np.float64)
+    for i in nb.prange(nFourier):
+        for j in nb.prange(length):
+            if j==0:
+                xcorr[i,j]  = 1
+            else:
+                xcorr[i,j] = np.sum(uHalfNormalized[j:,i]*uHalfNormalized[:-j,i].conj()).real/(length*uHalfVar[i])
+        
+    return xcorr
+    
