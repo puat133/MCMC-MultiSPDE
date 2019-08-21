@@ -71,6 +71,7 @@ class Tomograph:
         radon_matrix_file_name = 'radon_matrix_{0}x{1}.npz'.format(str(self.dim), str(self.theta.shape[0]))
         self.radon_matrix_file = matrix_folder / radon_matrix_file_name
         if not self.radon_matrix_file.exists():
+            # print(os.getcwd())
             from .matrices import radonmatrix
             self.radonoperator = radonmatrix(self.dim,self.theta*np.pi/180).T
             # self.radonoperator = radonmatrix(self.dim,self.theta)
@@ -116,12 +117,12 @@ def _constructH(radonoperator,n_r,n_theta,tx,ty,ix,iy):
     (iX,iY) are meshgrid for Fourier Index
     (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
     """
-    H = np.empty((ix.shape[0],tx.shape),dtype=np.complex64)
+    H = np.empty((ix.shape[0],n_r*n_theta),dtype=np.complex64)
     for i in nb.prange(ix.shape[0]):
         #TODO: this is point measurement, change this to a proper H
-        # eigenSlice = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
-        # H[i,:] = eigenslice@radonoperator
-        H[i,:] = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
+        eigenSlice = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
+        H[i,:] = eigenSlice@radonoperator
+        # H[i,:] = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
     return H.T
 
 
