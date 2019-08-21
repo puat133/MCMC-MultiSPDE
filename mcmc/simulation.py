@@ -169,37 +169,43 @@ class Simulation():
 
         # totalTime = 0.0
         accepted_count_partial = 0
-        
+        linalg_error_occured = False
         for i in range(self.n_samples):#nb.prange(nSim):
-            accepted_count_partial += self.pcn.oneStep(self.Layers)
-            # for j in range(self.fourier.basis_number):
-                # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
-            if (i+1)%(self.evaluation_interval) == 0:
-                self.accepted_count += accepted_count_partial
+            try:
+                accepted_count_partial += self.pcn.oneStep(self.Layers)
+            except np.linalg.LinAlgError as err:
+                linalg_error_occured = True
+                print("Linear Algebra Error :",err)
+                break
+            else:
+                # for j in range(self.fourier.basis_number):
+                    # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
+                if (i+1)%(self.evaluation_interval) == 0:
+                    self.accepted_count += accepted_count_partial
 
-                if self.pcn_pair_layers:
-                    self.acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))                    
-                else:
-                    self.acceptancePercentage = self.accepted_count/(i+1)
+                    if self.pcn_pair_layers:
+                        self.acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))                    
+                    else:
+                        self.acceptancePercentage = self.accepted_count/(i+1)
+                        
+                    if self.enable_beta_feedback:
+                        self.pcn.adapt_beta(self.acceptancePercentage)
+                    else:
+                        if self.acceptancePercentage> 0.5:
+                            self.pcn.more_aggresive()
+                        elif self.acceptancePercentage<0.3:
+                            self.pcn.less_aggresive()
+                    #TODO: toggle this if pcn.one_step_one_element is not used
+                    # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.basis_number)
                     
-                if self.enable_beta_feedback:
-                    self.pcn.adapt_beta(self.acceptancePercentage)
-                else:
-                    if self.acceptancePercentage> 0.5:
-                        self.pcn.more_aggresive()
-                    elif self.acceptancePercentage<0.3:
-                        self.pcn.less_aggresive()
-                #TODO: toggle this if pcn.one_step_one_element is not used
-                # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.basis_number)
-                
-                
-                
-                
-                accepted_count_partial = 0
-                mTime = (i+1)/(self.evaluation_interval)
+                    
+                    
+                    
+                    accepted_count_partial = 0
+                    mTime = (i+1)/(self.evaluation_interval)
 
-                with nb.objmode(average_time_intv='float64',start_time_intv='float64'):
-                
+                    # with nb.objmode(average_time_intv='float64',start_time_intv='float64'):
+                    
                     end_time_intv = time.time()
                     time_intv = end_time_intv-start_time_intv
                     average_time_intv +=  (time_intv-average_time_intv)/mTime
@@ -209,8 +215,15 @@ class Simulation():
                     if self.printProgress:
                         util.printProgressBar(i+1, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,self.acceptancePercentage), suffix = 'Complete', length = 50)
 
-        with nb.objmode():
-            
+        # with nb.objmode():
+        if linalg_error_occured:
+            if self.printProgress:
+                #truncating the each layer history
+                end_index = i%self.pcn.record_skip
+                for l in range(self.n_layers):
+                    self.Layers[l].samples_history = self.Layers[l].samples_history[:end_index,:]
+                print('Process is terminated due to error. The simulation result may not be valid')
+        else:
             elapsedTimeStr = time.strftime("%j day(s),%H:%M:%S", time.gmtime(time.time()-start_time))
             self.total_time = time.time()-start_time
             # print('Complete')
@@ -219,7 +232,8 @@ class Simulation():
     
 
     def analyze(self):
-        startIndex = np.int(self.burn_percentage*self.n_samples//100)
+        recorded_chain_length = self.Layers[0].samples_history.shape[0]
+        startIndex = np.int(self.burn_percentage*recorded_chain_length//100)
         
         # vtEs = np.empty((self.measurement.t.shape[0],len(vHistoryBurned)))
         # ut = np.empty((self.measurement.t.shape[0],len(uHistoryBurned)))
@@ -263,7 +277,7 @@ class Simulation():
 
         vtHalf = self.fourier.fourierTransformHalf(self.pcn.measurement.vt)
         vtF = self.fourier.inverseFourierLimited(vtHalf*sigmas)
-        for i in range(startIndex,self.n_samples):
+        for i in range(startIndex,recorded_chain_length):
             for j in range(self.n_layers): 
                 utNow = self.fourier.inverseFourierLimited(self.Layers[j].samples_history[i,:]*sigmas)
                 # lUNow = 1/np.flip(util.kappaFun(utNow))#<-  ini aneh ni kenapa harus di flip!!!
