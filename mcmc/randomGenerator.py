@@ -63,8 +63,7 @@ class RandomGenerator_2D:
         return u2.fromUHalf2DToUHalf(uHalf2D,self.basis_number)
 
     def construct_w_2D_ravelled(self):
-        
-        return u2.construct_w_Half_2D_ravelled(self.basis_number)
+        return u2.construct_w_2D_ravelled(self.basis_number)
 
     def symmetrize_2D(self,uHalf2D):
         return u2.symmetrize_2D(uHalf2D)
