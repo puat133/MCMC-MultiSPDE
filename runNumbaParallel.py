@@ -32,7 +32,7 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback,use_latex):
         yt = sim.pcn.measurement.yt
         yBar = sim.pcn.yBar
     else:
-        n = sim.fourier.fourier_basis_number
+        n = sim.fourier.basis_number
         m = sim.meas_samples_num
         yt = np.empty(m,dtype=np.float64)
         yBar = np.empty(m+2*n-1,dtype=np.float64)
