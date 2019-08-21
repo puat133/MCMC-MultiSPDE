@@ -6,6 +6,7 @@ import pathlib
 import seaborn as sns
 import pathlib
 import datetime
+from colorsys import hls_to_rgb
 def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=True,showFigures=False,save_hdf5=True,include_history=False):
     #unpack sim.sim_result
     vtHalf = sim.sim_result.vtHalf
@@ -162,3 +163,20 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     if showFigures:
         plt.show()
 
+
+
+"""
+https://stackoverflow.com/a/20958684/11764120
+"""
+def colorize(z):
+    r = np.abs(z)
+    arg = np.angle(z) 
+
+    h = (arg + np.pi)  / (2 * np.pi) + 0.5
+    l = 1.0 - 1.0/(1.0 + r**0.3)
+    s = 0.8
+
+    c = np.vectorize(hls_to_rgb) (h,l,s) # --> tuple
+    c = np.array(c)  # -->  array of (3,n,m) shape, but need (n,m,3)
+    c = c.swapaxes(0,2) 
+    return c
