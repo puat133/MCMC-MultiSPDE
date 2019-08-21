@@ -13,7 +13,7 @@ import numba as nb
 import time
 import math
 FASTMATH=True
-PARALLEL = True
+PARALLEL = False
 CACHE=True
 # from numba import complex64, complex128, float32, float64, int32, jit, njit, prange
 SQRT2 = np.sqrt(2)
@@ -22,6 +22,13 @@ jitSerial = nb.jit(fastmath=FASTMATH,cache=CACHE)
 njitParallel = nb.njit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 jitParallel = nb.jit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 
+@njitParallel    
+def construct_w_Half(n):
+    wHalf = np.random.randn(n)+1j*np.random.randn(n)
+    # wHalf[0] = wHalf[0].real*np.sqrt(2)
+    wHalf[0] = 2*wHalf[0].real
+    # return wHalf/np.sqrt(2)
+    return wHalf/SQRT2
 
 @njitParallel
 def inner(u,v):
@@ -167,15 +174,50 @@ def symmetrize(w_half):
     w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
     return w
 
-#@njitParallel
-def random_kaczmarz(A,b,tolerance):
+def kaczmarz(A,b,max_iteration):
     m = A.shape[0]
     n = A.shape[1]
     if m != b.shape[0]:
         raise Exception("Matrix and vector size missmatch")
     
     #set initial condition:
-    x = np.random.randn(n)
+    x = np.zeros(n,dtype=np.complex128)
+    #computing probability of each row
+    # prob_row = np.zeros(m,dtype=np.float64)
+    A_row_squared_norm = np.zeros(m,dtype=np.float64)
+    # A_normalized = A
+    for i in nb.prange(m):
+        A_row_squared_norm[i] = norm2(A[i,:])
+        #in_place_normalization
+        A[i,:] = A[i,:]/np.sqrt(A_row_squared_norm[i])
+        b[i] = b[i]/np.sqrt(A_row_squared_norm[i])
+            
+    # prob_row = A_row_squared_norm/np.sum(A_row_squared_norm)
+    # cum_prob_row = np.zeros(m+1,dtype=np.float64)
+    # cum_prob_row[0] = prob_row[0]
+    # for i in nb.prange(1,m):
+        # cum_prob_row[i] = cum_prob_row[i-1]+prob_row[i-1]
+        
+    # error = norm2(A@x - b)
+    # while(error>tolerance):
+    for k in nb.prange(max_iteration):
+        i = k%m
+        # i = get_random_index(cum_prob_row,np.random.rand(),m)
+        x = x + (b[i] - inner(A[i,:],x.conj()) )*A[i,:]
+        # error = norm2(A@x - b)
+        # print('error = {0}, i = {1}'.format(error,i))
+    error = norm2(A@x - b)
+    return x,error
+
+# @njitParallel
+def random_kaczmarz(A,b,max_iteration):
+    m = A.shape[0]
+    n = A.shape[1]
+    if m != b.shape[0]:
+        raise Exception("Matrix and vector size missmatch")
+    
+    #set initial condition:
+    x = np.zeros(n,dtype=np.complex128)
     #computing probability of each row
     prob_row = np.zeros(m,dtype=np.float64)
     A_row_squared_norm = np.zeros(m,dtype=np.float64)
@@ -188,12 +230,14 @@ def random_kaczmarz(A,b,tolerance):
     for i in nb.prange(1,m):
         cum_prob_row[i] = cum_prob_row[i-1]+prob_row[i-1]
         
-    error = norm2(A@x - b)
-    while(error>tolerance):
+    # error = norm2(A@x - b)
+    # while(error>tolerance):
+    for k in nb.prange(max_iteration):
         i = get_random_index(cum_prob_row,np.random.rand(),m)
         x = x + (b[i] - inner(A[i,:],x.conj()) )*A[i,:]/A_row_squared_norm[i]
-        error = norm2(A@x - b)
-        print('error = {0}, i = {1}'.format(error,i))
+        # error = norm2(A@x - b)
+        # print('error = {0}, i = {1}'.format(error,i))
+    error = norm2(A@x - b)
     return x,error
     
 @njitSerial       
