@@ -49,7 +49,7 @@ class pCN():
         self.beta_feedback_gain = 2.1
         self.record_skip = 1
         self.record_count = 0
-        self.max_record_history = 1000000
+        self.max_record_history = 10000
         
 
 
