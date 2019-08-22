@@ -12,7 +12,7 @@ import scipy.special as ssp
 #%%
 basis_number = 2**5
 f = fourier.FourierAnalysis_2D(basis_number,64,0.0,1.0)
-t = tg.Tomograph('shepp.png',f,target_size=2*f.extended_basis_number,n_theta=50,relative_location='phantom_images')
+t = tg.Tomograph('shepp.png',f,target_size=2*f.extended_basis_number,n_theta=180,relative_location='phantom_images')
 #%%
 #add regulising
 sigma_u = 5e6
@@ -26,17 +26,18 @@ beta_v = beta_u*(sigma_v/sigma_u)**2
 sqrtBeta_v = np.sqrt(beta_v)
 sqrtBeta_u = np.sqrt(beta_u)
 #%%
-Lu = (1/sqrtBeta_u)*(f.Dmatrix*kappa**(-nu) - kappa**(2-nu)*f.Imatrix)
-rgen = rg.RandomGenerator_2D(basis_number)
-LMat = L.Lmatrix_2D(f,sqrtBeta_v)
-wNew = rgen.construct_w_2D_ravelled()
-eNew = np.random.randn(t.sinogram_flattened.shape[0])
-wBar = np.concatenate((wNew,eNew))
-LBar = np.vstack((t.H,LMat.current_L))
+# Lu = (1/sqrtBeta_u)*(f.Dmatrix*kappa**(-nu) - kappa**(2-nu)*f.Imatrix)
+# rgen = rg.RandomGenerator_2D(basis_number)
+# LMat = L.Lmatrix_2D(f,sqrtBeta_v)
+# wNew = rgen.construct_w_2D_ravelled()
+# eNew = np.random.randn(t.sinogram_flattened.shape[0])
+# wBar = np.concatenate((wNew,eNew))
+# LBar = np.vstack((t.H,LMat.current_L))
+# #%%
+# yBar = np.concatenate((t.pure_sinogram_flattened/t.meas_std,np.zeros(f.basis_number_2D_sym,dtype=np.complex128)))
 #%%
-yBar = np.concatenate((t.pure_sinogram_flattened/t.meas_std,np.zeros(f.basis_number_2D_sym,dtype=np.complex128)))
-#%%
-v,res,rank,s = sla.lstsq(LBar,yBar-wBar,lapack_driver='gelsy')
+v,res,rank,s = sla.lstsq(t.H,t.sinogram_flattened,lapack_driver='gelsy')
+# v,res,rank,s = sla.lstsq(LBar,yBar-wBar,lapack_driver='gelsy')
 vForiginalHalf = f.fourierTransformHalf(t.target_image)
 vF = v.reshape(2*f.basis_number-1,2*f.basis_number-1)
 #%%
