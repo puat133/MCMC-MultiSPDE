@@ -4,10 +4,10 @@ import mcmc.util as util
 
 
 spec = [
-    ('yt',nb.float64[:]),
-    ('vt',nb.float64[:]),
-    ('t',nb.float64[:]),
-    # ('H',nb.complex128[:,:]),
+    ('yt',nb.float64[::1]),
+    ('vt',nb.float64[::1]),
+    ('t',nb.float64[::1]),
+    # ('H',nb.complex128[:,::1]),
     ('num_sample',nb.int64),
     ('stdev',nb.float64),
     ('t_end', nb.float64),               

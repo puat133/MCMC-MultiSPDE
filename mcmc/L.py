@@ -9,8 +9,8 @@ fourier_type.define(fourier.FourierAnalysis.class_type.instance_type)
 spec = [
     ('fourier',fourier_type),
     ('sqrt_beta',nb.float64),
-    ('current_L',nb.complex128[:,:]),
-    ('latest_computed_L',nb.complex128[:,:]),
+    ('current_L',nb.complex128[:,::1]),
+    ('latest_computed_L',nb.complex128[:,::1]),
 ]
 
 @nb.jitclass(spec)
@@ -34,12 +34,15 @@ class Lmatrix():
         self.latest_computed_L = L
         return L
 
-    def logDet(self):
+    def logDet(self,new):
         """
         # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues
         # L^dagger L is Hermitian
         """
-        return (np.linalg.slogdet(self.current_L)[1])
+        if new:
+            return (np.linalg.slogdet(self.latest_computed_L)[1])
+        else:
+            return (np.linalg.slogdet(self.current_L)[1])
 
     
     def set_current_L_to_latest(self):
@@ -55,8 +58,8 @@ fourier_type.define(fourier.FourierAnalysis_2D.class_type.instance_type)
 spec = [
     ('fourier',fourier_type),
     ('sqrt_beta',nb.float64),
-    ('current_L',nb.complex128[:,:]),
-    ('latest_computed_L',nb.complex128[:,:]),
+    ('current_L',nb.complex128[:,::1]),
+    ('latest_computed_L',nb.complex128[:,::1]),
 ]
 
 @nb.jitclass(spec)
@@ -80,16 +83,19 @@ class Lmatrix_2D:
         self.latest_computed_L = L
         return L
 
-    def logDet(self):
+    def logDet(self,new):
         """
         # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues
         # L^dagger L is Hermitian
         """
-        return (np.linalg.slogdet(self.current_L)[1])
+        if new:
+            return (np.linalg.slogdet(self.latest_computed_L)[1])
+        else:
+            return (np.linalg.slogdet(self.current_L)[1])
 
     
     def set_current_L_to_latest(self):
-        self.current_L = self.latest_computed_L.copy()
+        self.current_L = self.latest_computed_L
         
     
     def is_current_L_equals_to_the_latest(self):

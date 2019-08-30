@@ -36,7 +36,7 @@ def negLogPosterior(x,Layers):
     n = Layers[0].pcn.fourier.fourier_basis_number
     uHalf_0 = uHalf_all[0:n]
     Layers[0].new_sample = uHalf_0
-    Layers[0].new_sample_symmetrized = Layers[0].pcn.random_gen.symmetrize(Layers[0].new_sample)
+    Layers[0].new_sample_sym = Layers[0].pcn.random_gen.symmetrize(Layers[0].new_sample)
     Layers[0].new_sample_scaled_norm = util.norm2(Layers[0].new_sample/Layers[0].stdev)
     Layers[0].update_current_sample()
     negLogPost += Layers[0].current_sample_scaled_norm
@@ -51,12 +51,12 @@ def negLogPosterior(x,Layers):
             wBar = np.concatenate((eNew,wNew))
             
             LBar = np.vstack((Layers[i].pcn.H,Layers[i].LMat.current_L))
-            Layers[i].new_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,Layers[i].pcn.yBar-wBar )#,rcond=None)
-            Layers[i].new_sample = Layers[i].new_sample_symmetrized[Layers[i].pcn.fourier.fourier_basis_number-1:]
+            Layers[i].new_sample_sym, res, rnk, s = np.linalg.lstsq(LBar,Layers[i].pcn.yBar-wBar )#,rcond=None)
+            Layers[i].new_sample = Layers[i].new_sample_sym[Layers[i].pcn.fourier.fourier_basis_number-1:]
         else:
             uHalf_i = uHalf_all[n*(i-1):n*i]
             Layers[i].new_sample = uHalf_i
-        Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_symmetrized)
+        Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_sym)
         Layers[i].update_current_sample()
         negLogPost += 0.5*Layers[i].current_sample_scaled_norm
         negLogPost -= Layers[i].current_log_L_det    
@@ -71,7 +71,7 @@ def negLogPosterior(x,Layers):
 #     negLogPost = 0.0
 #     uHalf_0 = xToUHalf(x) # this is just like having new sample at the bottom layer
 #     Layers[0].new_sample = uHalf_0
-#     Layers[0].new_sample_symmetrized = Layers[0].pcn.random_gen.symmetrize(Layers[0].new_sample)
+#     Layers[0].new_sample_sym = Layers[0].pcn.random_gen.symmetrize(Layers[0].new_sample)
 #     Layers[0].new_sample_scaled_norm = util.norm2(Layers[0].new_sample/Layers[0].stdev)
 #     Layers[0].update_current_sample()
 #     negLogPost += Layers[0].current_sample_scaled_norm
@@ -80,7 +80,7 @@ def negLogPosterior(x,Layers):
 #         Layers[i].new_log_L_det = np.linalg.slogdet(Layers[i].LMat.latest_computed_L)[1]
 #         Layers[i].LMat.set_current_L_to_latest()
 #         Layers[i].sample()
-#         Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_symmetrized)
+#         Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_sym)
 #         Layers[i].update_current_sample()
 #         negLogPost += 0.5*Layers[i].current_sample_scaled_norm
 #         negLogPost -= Layers[i].current_log_L_det    
@@ -107,7 +107,7 @@ class Optimizer():
     #     negLogPost = 0.0
     #     uHalf_0 = xToUHalf(x) # this is just like having new sample at the bottom layer
     #     Layers[0].new_sample = uHalf_0
-    #     Layers[0].new_sample_symmetrized = Layers[0].pcn.random_gen.symmetrize(Layers[0].new_sample)
+    #     Layers[0].new_sample_sym = Layers[0].pcn.random_gen.symmetrize(Layers[0].new_sample)
     #     Layers[0].new_sample_scaled_norm = util.norm2(Layers[0].new_sample/Layers[0].stdev)
     #     Layers[0].update_current_sample()
     #     negLogPost -= Layers[0].current_sample_scaled_norm
@@ -115,7 +115,7 @@ class Optimizer():
     #         Layers[i].LMat.construct_from(Layers[i-1].new_sample)
     #         Layers[i].new_log_L_det = np.linalg.slogdet(Layers[i].LMat.latest_computed_L)[1]
     #         Layers[i].LMat.set_current_L_to_latest()
-    #         Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_symmetrized)
+    #         Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_sym)
     #         negLogPost -= 0.5*Layers[i].current_sample_scaled_norm
     #         negLogPost -= Layers[i].current_log_L_det    
         

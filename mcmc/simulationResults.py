@@ -14,21 +14,21 @@ import seaborn as sns
 
 
 specResult = [
-    # ('t',nb.float64[:]),
+    # ('t',nb.float64[::1]),
     # ('basis_number',nb.int64),
     # ('extended_basis_number',nb.int64),
-    ('vtHalf',nb.complex128[:]),
-    ('vtF',nb.float64[:]),
-    ('uHalfMean',nb.complex128[:,:]),
+    ('vtHalf',nb.complex128[::1]),
+    ('vtF',nb.float64[::1]),
+    ('uHalfMean',nb.complex128[:,::1]),
     # ('LMat',L_matrix_type),
-    ('uHalfStdReal',nb.float64[:,:]),
-    ('uHalfStdImag',nb.float64[:,:]),
-    ('elltMean',nb.float64[:,:]),
-    ('elltStd',nb.float64[:,:]),
-    ('utMean',nb.float64[:,:]),
-    ('utStd',nb.float64[:,:]),
-    # ('cummMeanU',nb.complex128[:,:]),
-    # ('indexCumm',nb.int64[:]),
+    ('uHalfStdReal',nb.float64[:,::1]),
+    ('uHalfStdImag',nb.float64[:,::1]),
+    ('elltMean',nb.float64[:,::1]),
+    ('elltStd',nb.float64[:,::1]),
+    ('utMean',nb.float64[:,::1]),
+    ('utStd',nb.float64[:,::1]),
+    # ('cummMeanU',nb.complex128[:,::1]),
+    # ('indexCumm',nb.int64[::1]),
 ]
 @nb.jitclass(specResult)
 class SimulationResult():
@@ -66,21 +66,21 @@ class SimulationResult():
 
 
 # specResult = [
-#     # ('t',nb.float64[:]),
+#     # ('t',nb.float64[::1]),
 #     # ('basis_number',nb.int64),
 #     # ('extended_basis_number',nb.int64),
-#     ('vtHalf',nb.complex128[:]),
-#     ('vtF',nb.float64[:]),
-#     ('vHalfMean',nb.complex128[:]),
+#     ('vtHalf',nb.complex128[::1]),
+#     ('vtF',nb.float64[::1]),
+#     ('vHalfMean',nb.complex128[::1]),
 #     # ('LMat',L_matrix_type),
-#     ('vHalfStdReal',nb.float64[:]),
-#     ('vHalfStdImag',nb.float64[:]),
-#     ('lMean',nb.float64[:]),
-#     ('lStd',nb.float64[:]),
-#     ('vtMean',nb.float64[:]),
-#     ('vtStd',nb.float64[:]),
-#     # ('cummMeanU',nb.complex128[:,:]),
-#     # ('indexCumm',nb.int64[:]),
+#     ('vHalfStdReal',nb.float64[::1]),
+#     ('vHalfStdImag',nb.float64[::1]),
+#     ('lMean',nb.float64[::1]),
+#     ('lStd',nb.float64[::1]),
+#     ('vtMean',nb.float64[::1]),
+#     ('vtStd',nb.float64[::1]),
+#     # ('cummMeanU',nb.complex128[:,::1]),
+#     # ('indexCumm',nb.int64[::1]),
 # ]
 # @nb.jitclass(specResult)
 # class SimulationResult():

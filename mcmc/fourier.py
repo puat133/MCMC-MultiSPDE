@@ -9,13 +9,13 @@ spec = [
     ('t_end', nb.float64),               
     ('t_start', nb.float64),               
     ('dt', nb.float64),
-    ('t', nb.float64[:]),
-    ('index', nb.int64[:,:]),
-    ('Dmatrix', nb.float64[:,:]),
-    ('Imatrix', nb.float64[:,:]),
-    ('cosFun', nb.float64[:,:]),          
-    ('sinFun', nb.float64[:,:]),          
-    ('eigenFun', nb.complex128[:,:]),
+    ('t', nb.float64[::1]),
+    ('index', nb.int64[:,::1]),
+    ('Dmatrix', nb.float64[:,::1]),
+    ('Imatrix', nb.float64[:,::1]),
+    ('cosFun', nb.float64[:,::1]),          
+    ('sinFun', nb.float64[:,::1]),          
+    ('eigenFun', nb.complex128[:,::1]),
     ('prepared',nb.boolean)
 ]
 
@@ -123,9 +123,9 @@ spec2D = [
     ('t_end', nb.float64),               
     ('t_start', nb.float64),               
     ('dt', nb.float64),
-    ('t', nb.float64[:]),
-    ('Dmatrix', nb.float64[:,:]),
-    ('Imatrix', nb.float64[:,:]),
+    ('t', nb.float64[::1]),
+    ('Dmatrix', nb.float64[:,::1]),
+    ('Imatrix', nb.float64[:,::1]),
     ('Index',nb.typeof(u2.createUindex(2)))
 ]
 
