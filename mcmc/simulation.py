@@ -95,15 +95,16 @@ class Simulation():
         Lu = LuReal + 1j*np.zeros(LuReal.shape)
         
         uStdev = -1/np.diag(Lu)
-        uStdev = uStdev[self.fourier.basis_number-1:]
-        uStdev[0] /= 2 #scaled
+        # uStdev = uStdev[self.fourier.basis_number-1:]
+        # uStdev[0] /= 2 #scaled
 
         meas_std = 0.1
         measurement = meas.Measurement(num,meas_std,self.t_start,self.t_end)
         # pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
-        self.pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
-        self.pcn_pair_layers = pcn_pair_layers
-
+        self.non_centered = True
+        self.pcn = pCN.pCN(n_layers,rg,measurement,f,beta,self.non_centered)
+        # self.pcn_pair_layers = pcn_pair_layers
+        
         
         #initialize Layers
         typed_list_status = importlib.util.find_spec('numba.typed.typedlist')
@@ -118,7 +119,9 @@ class Simulation():
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.basis_number-1:]
                 lay = layer.Layer(True,self.sqrtBeta_0,i,self.n_samples,self.pcn,init_sample)
-                lay.stdev = uStdev
+                lay.stdev_sym = uStdev
+                lay.stdev = uStdev[self.fourier.basis_number-1:]
+                lay.stdev[0] /=2
                 lay.current_sample_scaled_norm = util.norm2(lay.current_sample/lay.stdev)#ToDO: Modify this
                 lay.new_sample_scaled_norm = lay.current_sample_scaled_norm
             else:
@@ -133,18 +136,19 @@ class Simulation():
                     LBar = np.vstack((self.pcn.H,lay.LMat.current_L))
 
                     #update v
-                    lay.current_sample_symmetrized, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
-                    lay.current_sample = lay.current_sample_symmetrized[self.pcn.fourier.basis_number-1:]
+                    lay.current_sample_sym, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
+                    lay.current_sample = lay.current_sample_sym[self.pcn.fourier.basis_number-1:]
                 else:
                     lay = layer.Layer(False,self.sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
 
-            if self.pcn_pair_layers:
-                self.pcn.record_skip = np.max([1,(lay.n_samples*self.n_layers-1)//self.pcn.max_record_history])
-                history_length = np.min([lay.n_samples*(self.n_layers-1),self.pcn.max_record_history]) 
-            else:
-                self.pcn.record_skip = np.max([1,lay.n_samples//self.pcn.max_record_history])
-                history_length = np.min([lay.n_samples,self.pcn.max_record_history]) 
+            # if self.non_centered:
+            #     self.pcn.record_skip = np.max([1,(lay.n_samples*self.n_layers)//self.pcn.max_record_history])
+            #     history_length = np.min([lay.n_samples*(self.n_layers),self.pcn.max_record_history]) 
+            # else:
+            self.pcn.record_skip = np.max([1,lay.n_samples//self.pcn.max_record_history])
+            history_length = np.min([lay.n_samples,self.pcn.max_record_history]) 
+            
             lay.samples_history = np.empty((history_length, self.fourier.basis_number), dtype=np.complex128)
             Layers.append(lay)
                 
@@ -172,7 +176,10 @@ class Simulation():
         linalg_error_occured = False
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
-                accepted_count_partial += self.pcn.oneStep(self.Layers)
+                if self.non_centered:
+                    accepted_count_partial += self.pcn.one_step_non_centered(self.Layers)
+                else:
+                    accepted_count_partial += self.pcn.oneStep(self.Layers)
             except np.linalg.LinAlgError as err:
                 linalg_error_occured = True
                 print("Linear Algebra Error :",err)
@@ -183,18 +190,18 @@ class Simulation():
                 if (i+1)%(self.evaluation_interval) == 0:
                     self.accepted_count += accepted_count_partial
 
-                    if self.pcn_pair_layers:
-                        self.acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers-1))                    
-                    else:
-                        self.acceptancePercentage = self.accepted_count/(i+1)
+                    # if self.non_centered:
+                    #     self.acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers))                    
+                    # else:
+                    self.acceptancePercentage = self.accepted_count/(i+1)
                         
                     if self.enable_beta_feedback:
                         self.pcn.adapt_beta(self.acceptancePercentage)
-                    else:
-                        if self.acceptancePercentage> 0.5:
-                            self.pcn.more_aggresive()
-                        elif self.acceptancePercentage<0.3:
-                            self.pcn.less_aggresive()
+                    # else:
+                    #     if self.acceptancePercentage> 0.5:
+                    #         self.pcn.more_aggresive()
+                    #     elif self.acceptancePercentage<0.3:
+                    #         self.pcn.less_aggresive()
                     #TODO: toggle this if pcn.one_step_one_element is not used
                     # acceptancePercentage = self.accepted_count/((i+1)*self.fourier.basis_number)
                     
