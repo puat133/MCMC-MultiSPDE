@@ -226,15 +226,15 @@ class pCN():
                 Layers[i].new_sample_sym = Layers[i].stdev_sym*Layers[i].new_noise_sample
             Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number-1:]
 
-        logRatio = 0.5*(util.norm2(self.measurement.yt - self.H@Layers[self.n_layers-1].current_sample_sym) - util.norm2(self.measurement.yt - self.H@Layers[self.n_layers-1].new_sample_sym))
-        a = np.min(np.array([1,np.exp(logRatio)]))
-        # if logRatio>np.log(np.random.rand()):
-        if a>np.random.rand():
+        logRatio = 0.5*(util.norm2(self.measurement.yt/self.measurement.stdev - self.H@Layers[self.n_layers-1].current_sample_sym) - util.norm2(self.measurement.yt/self.measurement.stdev - self.H@Layers[self.n_layers-1].new_sample_sym))
+        # a = np.min(np.array([1,np.exp(logRatio)]))
+        if logRatio>np.log(np.random.rand()):
+        # if a>np.random.rand():
             accepted = 1
             for i in range(self.n_layers):
                 Layers[i].update_current_sample()
-                if i<self.n_layers-1 and not Layers[i+1].is_stationary:
-                    Layers[i+1].LMat.set_current_L_to_latest()
+                if not Layers[i].is_stationary:
+                    Layers[i].LMat.set_current_L_to_latest()
 
             # only record when needed
         if (self.record_count%self.record_skip) == 0:
