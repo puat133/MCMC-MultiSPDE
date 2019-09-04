@@ -56,7 +56,7 @@ import h5py
 # @nb.jitclass(spec)
 class Simulation():
     def __init__(self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
-                    seed,burn_percentage,pcn_pair_layers,enable_beta_feedback):
+                    seed,burn_percentage,enable_beta_feedback):
         self.n_samples = n_samples
         self.meas_samples_num = num
         self.evaluation_interval = evaluation_interval
@@ -119,6 +119,8 @@ class Simulation():
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.basis_number-1:]
                 lay = layer.Layer(True,self.sqrtBeta_0,i,self.n_samples,self.pcn,init_sample)
+                lay.LMat.current_L = Lu
+                lay.LMat.latest_computed_L = Lu
                 lay.stdev_sym = uStdev
                 lay.stdev = uStdev[self.fourier.basis_number-1:]
                 lay.stdev[0] /=2
@@ -183,7 +185,7 @@ class Simulation():
             except np.linalg.LinAlgError as err:
                 linalg_error_occured = True
                 print("Linear Algebra Error :",err)
-                break
+                continue
             else:
                 # for j in range(self.fourier.basis_number):
                     # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
@@ -229,7 +231,7 @@ class Simulation():
                 end_index = i%self.pcn.record_skip
                 for l in range(self.n_layers):
                     self.Layers[l].samples_history = self.Layers[l].samples_history[:end_index,:]
-                print('Process is terminated due to error. The simulation result may not be valid')
+                print('Linear algebra errors occured during some simulation step(s). The simulation result may not be valid')
         else:
             elapsedTimeStr = time.strftime("%j day(s),%H:%M:%S", time.gmtime(time.time()-start_time))
             self.total_time = time.time()-start_time

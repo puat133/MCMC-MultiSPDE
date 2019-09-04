@@ -15,7 +15,7 @@ import h5py
 import parser_help as ph
 
 def runSimulations(n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
-seed,burn_percentage,pcn_pair_layers,enable_beta_feedback,use_latex):
+seed,burn_percentage,enable_beta_feedback,use_latex):
 
     #initialize parameter                   
     
@@ -25,7 +25,7 @@ seed,burn_percentage,pcn_pair_layers,enable_beta_feedback,use_latex):
     size = comm.Get_size()
     rank = comm.Get_rank()
     sim = s.Simulation(n_layers=n_layers,n_samples =n_samples,n =n,beta =beta,num =num,kappa =kappa,sigma_0 =sigma_0,sigma_v =sigma_v,sigma_scaling=sigma_scaling,          
-                        evaluation_interval =evaluation_interval,printProgress=False,seed=seed-1+rank,burn_percentage = burn_percentage,pcn_pair_layers=pcn_pair_layers,enable_beta_feedback=enable_beta_feedback)
+                        evaluation_interval =evaluation_interval,printProgress=False,seed=seed-1+rank,burn_percentage = burn_percentage,enable_beta_feedback=enable_beta_feedback)
 
         
     if rank==0:
@@ -233,18 +233,12 @@ if __name__=='__main__':
     parser.add_argument('--sigma-v',default=1e2,type=float,help='Sigma_v constant, Default=10.0')
     parser.add_argument('--sigma-scaling',default=1e-4,type=float,help='Sigma_scaling constant, Default=1e-4')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
-    # parser.add_argument('--use-latex',default=False,type=bool,help='Whether to use Latex for plotting or not, Default=False')
     ph.add_boolean_argument(parser,'use-latex',default=False,messages='Whether to use Latex for plotting or not, Default=False')
-    # parser.add_argument('--include-history',default=False,type=bool,help='Whether to include Layer simulation history in hdf5, Default=False')
     ph.add_boolean_argument(parser,'include-history',default=False,messages='Whether to include Layer simulation history in hdf5, Default=False')
-    # parser.add_argument('--pcn-pair-layers',default=False,type=bool,help='Whether pCN will be calculated each two consecutive layers, Default=False')
-    ph.add_boolean_argument(parser,'pcn-pair-layers',default=False,messages='Whether pCN will be calculated each two consecutive layers, Default=False')
-    # parser.add_argument('--enable-beta-feedback',default=True,type=bool,help='Whether beta-feedback will be enabled, Default=False')
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=True,messages='Whether beta-feedback will be enabled, Default=True')
-    # parser.add_argument('--print-progress',default=True,type=bool,help='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=False,messages='Whether progress is printed, Default=False')
 
     args = parser.parse_args()
     runSimulations(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
                     kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=False,
-                    seed=args.seed,burn_percentage = args.burn_percentage,pcn_pair_layers=args.pcn_pair_layers,enable_beta_feedback=args.enable_beta_feedback,use_latex=args.use_latex)
+                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,use_latex=args.use_latex)

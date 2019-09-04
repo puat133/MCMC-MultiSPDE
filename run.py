@@ -41,22 +41,15 @@ if __name__=='__main__':
     parser.add_argument('--sigma-v',default=1e2,type=float,help='Sigma_v constant, Default=10.0')
     parser.add_argument('--sigma-scaling',default=1e-4,type=float,help='Sigma_scaling constant, Default=1e-4')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
-    # parser.add_argument('--include-history',default=False,type=bool,help='Whether to include Layer simulation history in hdf5, Default=False')
     ph.add_boolean_argument(parser,'include-history',default=False,messages='Whether to include Layer simulation history in hdf5, Default=False')
-    # parser.add_argument('--pcn-pair-layers',default=False,type=bool,help='Whether pCN will be calculated each two consecutive layers, Default=False')
-    ph.add_boolean_argument(parser,'pcn-pair-layers',default=False,messages='Whether pCN will be calculated each two consecutive layers, Default=False')
-    # parser.add_argument('--enable-beta-feedback',default=True,type=bool,help='Whether beta-feedback will be enabled, Default=False')
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=False,messages='Whether beta-feedback will be enabled, Default=True')
-    # parser.add_argument('--print-progress',default=True,type=bool,help='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'use-latex',default=True,messages='Whether latex is used during results plotting, Default=True')
 
     args = parser.parse_args()
-    # (self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
-    #                 seed,burn_percentage)
     sim = s.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
                     kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
-                    seed=args.seed,burn_percentage = args.burn_percentage,pcn_pair_layers=args.pcn_pair_layers,enable_beta_feedback=args.enable_beta_feedback)
+                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback)
     sim.pcn.beta_feedback_gain = 2.1
     sim.run()
     sim.analyze()
