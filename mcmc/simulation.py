@@ -179,7 +179,8 @@ class Simulation():
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
                 if self.non_centered:
-                    accepted_count_partial += self.pcn.one_step_non_centered(self.Layers)
+                    # accepted_count_partial += self.pcn.one_step_non_centered(self.Layers)
+                    accepted_count_partial += self.pcn.one_step_non_centered_new(self.Layers)
                 else:
                     accepted_count_partial += self.pcn.oneStep(self.Layers)
             except np.linalg.LinAlgError as err:
