@@ -29,7 +29,7 @@ if __name__=='__main__':
     #                 seed=1,burnPercentage = 5,useLaTeX=True,randVectInitiated=True,
     #                 showFigures=True
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n-layers',default=1,type=int,help='number SPDE layers, Default=2')
+    parser.add_argument('--n-layers',default=2,type=int,help='number SPDE layers, Default=2')
     parser.add_argument('--n',default=2**6,type=int,help='number of Fourier basis, Default=64')
     parser.add_argument('--seed',default=1,type=int,help='random generator seed, Default=1')
     parser.add_argument('--num',default=2**8,type=int,help='number measurement points, Default=256')
@@ -39,12 +39,12 @@ if __name__=='__main__':
     parser.add_argument('--kappa',default=1e17,type=float,help='kappa constant for u_t, Default=1e17')
     parser.add_argument('--sigma-0',default=5e6,type=float,help='Sigma_u constant, Default=5e6')
     parser.add_argument('--sigma-v',default=1e2,type=float,help='Sigma_v constant, Default=10.0')
-    parser.add_argument('--sigma-scaling',default=1e-4,type=float,help='Sigma_scaling constant, Default=1e-4')
+    parser.add_argument('--sigma-scaling',default=1e-3,type=float,help='Sigma_scaling constant, Default=1e-4')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
     ph.add_boolean_argument(parser,'include-history',default=False,messages='Whether to include Layer simulation history in hdf5, Default=False')
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=False,messages='Whether beta-feedback will be enabled, Default=True')
-    ph.add_boolean_argument(parser,'print-progress',default=False,messages='Whether progress is printed, Default=True')
-    ph.add_boolean_argument(parser,'use-latex',default=False,messages='Whether latex is used during results plotting, Default=True')
+    ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
+    ph.add_boolean_argument(parser,'use-latex',default=True,messages='Whether latex is used during results plotting, Default=True')
 
     args = parser.parse_args()
     sim = s.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
