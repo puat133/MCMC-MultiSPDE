@@ -228,14 +228,25 @@ class pCN():
         meas_var = self.measurement.stdev**2
         y = self.measurement.yt
         L = Layers[-1].LMat.current_L
-        Ht = np.linalg.solve(L.T.conj(),self.H.T)
-        R = (Ht.T.conj()@Ht + self.I).real*meas_var
-        logRatio = 0.5*(y@(np.linalg.solve(R,y))+np.linalg.slogdet(R)[1])
+        r = L.conj().T@L + self.H.conj().T@self.H
+        c = np.linalg.cholesky(r)
+        Ht = np.linalg.solve(c.conj().T,self.H.T)
+        R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
+        logRatio = 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
-        Ht = np.linalg.solve(L.T.conj(),self.H.T)
-        R = (Ht.T.conj()@Ht + self.I).real*meas_var
-        # C = np.linalg.cholesky(R)
-        logRatio -= 0.5*(y@(np.linalg.solve(R,y))+np.linalg.slogdet(R)[1])
+        r = L.conj().T@L + self.H.conj().T@self.H
+        c = np.linalg.cholesky(r)
+        Ht = np.linalg.solve(c.conj().T,self.H.T)
+        R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
+        logRatio -= 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
+        # Ht = np.linalg.solve(L.T.conj(),self.H.T)
+        # R = (Ht.T.conj()@Ht + self.I).real*meas_var
+        # logRatio = 0.5*(y@(np.linalg.solve(R,y))+np.linalg.slogdet(R)[1])
+        # L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
+        # Ht = np.linalg.solve(L.T.conj(),self.H.T)
+        # R = (Ht.T.conj()@Ht + self.I).real*meas_var
+        # # C = np.linalg.cholesky(R)
+        # logRatio -= 0.5*(y@(np.linalg.solve(R,y))+np.linalg.slogdet(R)[1])
                         
 
 
