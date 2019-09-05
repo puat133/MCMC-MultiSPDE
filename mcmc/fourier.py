@@ -82,7 +82,7 @@ class FourierAnalysis:
         # U = U.astype(complex)
         for i in nb.prange(2*self.basis_number-1):
             for j in nb.prange(2*self.basis_number-1):
-                index = i-j #(j-i)#
+                index = (j-i)#i-j #
                 if 0<= index <self.basis_number :
                     U[i,j] = uHalf[index]
                     continue
