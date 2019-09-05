@@ -6,6 +6,7 @@ import pathlib
 import seaborn as sns
 import pathlib
 import datetime
+import os
 from colorsys import hls_to_rgb
 def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=True,showFigures=False,save_hdf5=True,include_history=False):
     #unpack sim.sim_result
@@ -25,7 +26,10 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     # vHistory = sim.sim_result['vHistory']
     if simResultPath == None:
         folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
-        simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+        if 'WRKDIR' in os.environ:
+            simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
+        else:
+            simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
         simResultPath.mkdir()
         
 
