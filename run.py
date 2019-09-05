@@ -29,7 +29,7 @@ if __name__=='__main__':
     #                 seed=1,burnPercentage = 5,useLaTeX=True,randVectInitiated=True,
     #                 showFigures=True
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n-layers',default=2,type=int,help='number SPDE layers, Default=2')
+    parser.add_argument('--n-layers',default=1,type=int,help='number SPDE layers, Default=2')
     parser.add_argument('--n',default=2**6,type=int,help='number of Fourier basis, Default=64')
     parser.add_argument('--seed',default=1,type=int,help='random generator seed, Default=1')
     parser.add_argument('--num',default=2**8,type=int,help='number measurement points, Default=256')
@@ -42,7 +42,7 @@ if __name__=='__main__':
     parser.add_argument('--sigma-scaling',default=1e-4,type=float,help='Sigma_scaling constant, Default=1e-4')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
     ph.add_boolean_argument(parser,'include-history',default=False,messages='Whether to include Layer simulation history in hdf5, Default=False')
-    ph.add_boolean_argument(parser,'enable-beta-feedback',default=False,messages='Whether beta-feedback will be enabled, Default=True')
+    ph.add_boolean_argument(parser,'enable-beta-feedback',default=True,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'use-latex',default=True,messages='Whether latex is used during results plotting, Default=True')
 
