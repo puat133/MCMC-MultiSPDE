@@ -233,13 +233,13 @@ class pCN():
         L = Layers[-1].LMat.current_L
         r = L.conj().T@L + self.H_t_H
         c = np.linalg.cholesky(r)
-        Ht = np.linalg.solve(c.conj().T,self.H.T)
+        Ht = np.linalg.solve(c,self.H.T)
         R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
         logRatio = 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
         r = L.conj().T@L + self.H_t_H
         c = np.linalg.cholesky(r)
-        Ht = np.linalg.solve(c.conj().T,self.H.T)
+        Ht = np.linalg.solve(c,self.H.T)
         R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
         logRatio -= 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
         # Ht = np.linalg.solve(L.T.conj(),self.H.T)
