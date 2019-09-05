@@ -54,5 +54,5 @@ if __name__=='__main__':
     sim.pcn.beta_feedback_gain = 2.1
     sim.run()
     sim.analyze()
-    p.plotResult(sim,include_history=args.include_history,useLaTeX=args.use_latex)
+    p.plotResult(sim,include_history=args.include_history,useLaTeX=args.use_latex,showFigures=args.show_figure)
 
