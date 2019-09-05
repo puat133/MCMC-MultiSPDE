@@ -28,6 +28,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
         folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
         if 'WRKDIR' in os.environ:
             simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
+        elif pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
+            simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
         else:
             simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
         simResultPath.mkdir()
