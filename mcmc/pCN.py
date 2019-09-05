@@ -257,18 +257,18 @@ class pCN():
         if logRatio>np.log(np.random.rand()):
             accepted = 1
             #sample the last layer
-            Layers[self.n_layers-1].sample_non_centered()
-            wNew = Layers[self.n_layers-1].new_noise_sample
+            Layers[-1].sample_non_centered()
+            wNew = Layers[-1].new_noise_sample
             eNew = np.random.randn(self.measurement.num_sample)
             wBar = np.concatenate((eNew,wNew))
-            LBar = np.vstack((self.H,Layers[self.n_layers-1].LMat.latest_computed_L))
+            LBar = np.vstack((self.H,Layers[-1].LMat.latest_computed_L))
             v, res, rnk, s = np.linalg.lstsq(LBar,self.yBar-wBar )#,rcond=None)
-            Layers[self.n_layers-1].new_sample_sym = v
-            Layers[self.n_layers-1].new_sample = v[self.fourier.basis_number-1:]
+            Layers[-1].new_sample_sym = v
+            Layers[-1].new_sample = v[self.fourier.basis_number-1:]
             for i in range(self.n_layers):
                 Layers[i].update_current_sample()
-                if i<self.n_layers-1 and not Layers[i+1].is_stationary:
-                    Layers[i+1].LMat.set_current_L_to_latest()
+                if not Layers[i].is_stationary:
+                    Layers[i].LMat.set_current_L_to_latest()
 
             # only record when needed
         if (self.record_count%self.record_skip) == 0:
