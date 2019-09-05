@@ -26,6 +26,7 @@ spec = [
     ('fourier',fourier_type),
     ('H',nb.complex128[:,::1]),
     ('I',nb.float64[:,::1]),
+    ('H_t_H',nb.float64[:,::1]),
     ('yBar',nb.float64[::1]),
     ('gibbs_step',nb.int64),
     ('aggresiveness',nb.float64),
@@ -54,6 +55,8 @@ class pCN():
         self.record_skip = 1
         self.record_count = 0
         self.max_record_history = 10000
+        temp = self.H.conj().T@self.H
+        self.H_t_H = 0.5*(temp+temp.conj().T).real
         
 
 
@@ -228,13 +231,13 @@ class pCN():
         meas_var = self.measurement.stdev**2
         y = self.measurement.yt
         L = Layers[-1].LMat.current_L
-        r = L.conj().T@L + self.H.conj().T@self.H
+        r = L.conj().T@L + self.H_t_H
         c = np.linalg.cholesky(r)
         Ht = np.linalg.solve(c.conj().T,self.H.T)
         R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
         logRatio = 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
-        r = L.conj().T@L + self.H.conj().T@self.H
+        r = L.conj().T@L + self.H_t_H
         c = np.linalg.cholesky(r)
         Ht = np.linalg.solve(c.conj().T,self.H.T)
         R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
