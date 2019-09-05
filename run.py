@@ -44,7 +44,7 @@ if __name__=='__main__':
     ph.add_boolean_argument(parser,'include-history',default=False,messages='Whether to include Layer simulation history in hdf5, Default=False')
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=False,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
-    ph.add_boolean_argument(parser,'use-latex',default=True,messages='Whether latex is used during results plotting, Default=True')
+    ph.add_boolean_argument(parser,'use-latex',default=False,messages='Whether latex is used during results plotting, Default=True')
 
     args = parser.parse_args()
     sim = s.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
