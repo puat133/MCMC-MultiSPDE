@@ -6,4 +6,4 @@
 #SBATCH --output=parallel_output_record.out
 module load anaconda3
 
-mpiexec -n $SLURM_NTASKS python runNumbaParallel.py --n=64 --n-samples=1000000  --n-layers=3 --sigma-scaling=5e-3 --include-history --enable-beta-feedback
+mpiexec -n $SLURM_NTASKS python runNumbaParallel.py --n=64 --n-samples=10000000  --n-layers=3 --sigma-scaling=5e-3 --include-history --enable-beta-feedback
