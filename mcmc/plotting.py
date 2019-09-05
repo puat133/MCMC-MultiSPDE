@@ -58,7 +58,7 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     plt.plot(cummMeanU.real,linewidth=0.5)
     plt.xlabel('$n$ simulation')
     plt.ylabel('Real components of cummulative average of $u$')
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.savefig(str(simResultPath/'uCummReal.pdf'), bbox_inches='tight')
     plt.close()
 
@@ -66,7 +66,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
     plt.plot(cummMeanU.imag,linewidth=0.5)
     plt.xlabel('$n$ simulation')
     plt.ylabel('Imaginary components of cummulative average of $u$')
-    plt.tight_layout()
+    if useLaTeX:
+        plt.tight_layout()
     plt.savefig(str(simResultPath/'uCummImag.pdf'), bbox_inches='tight')
     plt.close()
 
@@ -91,7 +92,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
         else:
             plt.ylabel('$u(t)$')
         plt.xlabel('$t$')
-        plt.tight_layout()
+        if useLaTeX:
+            plt.tight_layout()
         if j == sim.n_layers-1:
             plt.savefig(str(simResultPath/'upsilont.pdf'), bbox_inches='tight')
         else:
@@ -140,7 +142,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
         plt.fill_between(iHalf,uHalfMean.imag-2*uHalfStdImag,uHalfMean.imag+2*uHalfStdImag, color='b', alpha=.1)
         plt.xlabel(r'Frequency $2 \pi n$')
         plt.ylabel('Imaginary components of $v_n$')
-        plt.tight_layout()
+        if useLaTeX:
+            plt.tight_layout()
         if j == sim.n_layers-1:
             plt.savefig(str(simResultPath/'vComponentImag.pdf'), bbox_inches='tight')
         else:
@@ -156,7 +159,8 @@ def plotResult(sim,indexCumm=None,cummMeanU=None,simResultPath=None,useLaTeX=Tru
         plt.fill_between(iHalf,np.abs(uHalfMean)-2*uHalfStdAbs,np.abs(uHalfMean)+2*uHalfStdAbs, color='b', alpha=0.1)
         plt.ylabel(r'Absolute value of $v_n$')
         plt.xlabel(r'Frequency $2 \pi n$')
-        plt.tight_layout()
+        if useLaTeX:
+            plt.tight_layout()
         if j == sim.n_layers-1: 
             plt.savefig(str(simResultPath/'vComponentAbs.pdf'), bbox_inches='tight')
         else:
