@@ -5,4 +5,4 @@
 #SBATCH --output=serial_output_record.out
 module load anaconda3
 
-python run.py --n=64 --n-samples=10000000  --n-layers=3 --sigma-scaling=1e-3 --include-history --print-progress --enable-beta-feedback
+python run.py --n=64 --n-samples=10000000  --n-layers=3 --sigma-scaling=1e-3 --include-history --print-progress --enable-beta-feedback --evaluation-interval=1000
