@@ -38,19 +38,23 @@ class Measurement():
         
         self.vt = np.zeros(self.t.shape[0])
         for i in range(self.t.shape[0]):
-            # if 0.25<t[i]<0.75*tf:
-            #     vt[i] = 1
-            if 0<self.t[i]< 0.5*self.t_end:
-                self.vt[i] = np.exp(4 - 1/(2*self.t[i]-4*self.t[i]**2))
-                continue
-            if 0.7*self.t_end<=self.t[i]<=0.8*self.t_end:
+            # if 0<self.t[i]< 0.5*self.t_end:
+            #     self.vt[i] = np.exp(4 - 1/(2*self.t[i]-4*self.t[i]**2))
+            #     continue
+            # if 0.7*self.t_end<=self.t[i]<=0.8*self.t_end:
+            #     self.vt[i] = 1
+            #     continue
+            # if 0.8*self.t_end< self.t[i] <= 0.9*self.t_end:
+            #     self.vt[i] = -1
+            if 0.2*self.t_end<self.t[i]< 0.8*self.t_end:
                 self.vt[i] = 1
                 continue
-            if 0.8*self.t_end< self.t[i] <= 0.9*self.t_end:
-                self.vt[i] = -1
-                continue
-        #Add some noise
-        
+            # if 0.7*self.t_end<=self.t[i]<=0.8*self.t_end:
+            #     self.vt[i] = 1
+            #     continue
+            # if 0.8*self.t_end< self.t[i] <= 0.9*self.t_end:
+            #     self.vt[i] = -1
+
         e = self.stdev*np.random.randn(self.vt.shape[0])
         self.yt = self.vt+e
 
