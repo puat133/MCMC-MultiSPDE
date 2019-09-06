@@ -32,19 +32,20 @@ spec = [
     ('aggresiveness',nb.float64),
     ('target_acceptance_rate',nb.float64),
     ('beta_feedback_gain',nb.float64),
+    ('variant',nb.typeof("string")),
     ('non_centered',nb.boolean)
 ]
 
 @nb.jitclass(spec)
 class pCN():
-    def __init__(self,n_layers,rg,measurement,f,beta=1,non_centered=False):
+    def __init__(self,n_layers,rg,measurement,f,beta=1,variant="sari"):
         self.n_layers = n_layers
         self.beta = beta
         self.betaZ = np.sqrt(1-beta**2)
         self.random_gen = rg
         self.measurement = measurement
         self.fourier = f
-        self.non_centered=non_centered
+        self.variant=variant
         self.H = self.measurement.get_measurement_matrix(self.fourier.basis_number)/self.measurement.stdev
         self.I = np.eye(self.measurement.num_sample)
         self.yBar = np.concatenate((self.measurement.yt/self.measurement.stdev,np.zeros(2*self.fourier.basis_number-1)))

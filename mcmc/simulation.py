@@ -56,7 +56,7 @@ import h5py
 # @nb.jitclass(spec)
 class Simulation():
     def __init__(self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
-                    seed,burn_percentage,enable_beta_feedback):
+                    seed,burn_percentage,enable_beta_feedback,pcn_variant):
         self.n_samples = n_samples
         self.meas_samples_num = num
         self.evaluation_interval = evaluation_interval
@@ -101,8 +101,8 @@ class Simulation():
         meas_std = 0.1
         measurement = meas.Measurement(num,meas_std,self.t_start,self.t_end)
         # pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
-        self.non_centered = True
-        self.pcn = pCN.pCN(n_layers,rg,measurement,f,beta,self.non_centered)
+        self.pcn_variant = pcn_variant
+        self.pcn = pCN.pCN(n_layers,rg,measurement,f,beta,self.pcn_variant)
         # self.pcn_pair_layers = pcn_pair_layers
         
         
@@ -144,7 +144,7 @@ class Simulation():
                     lay = layer.Layer(False,self.sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
 
-            # if self.non_centered:
+            # if self.pcn_variant:
             #     self.pcn.record_skip = np.max([1,(lay.n_samples*self.n_layers)//self.pcn.max_record_history])
             #     history_length = np.min([lay.n_samples*(self.n_layers),self.pcn.max_record_history]) 
             # else:
@@ -178,9 +178,10 @@ class Simulation():
         linalg_error_occured = False
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
-                if self.non_centered:
-                    # accepted_count_partial += self.pcn.one_step_non_centered(self.Layers)
+                if self.pcn_variant == "dunlop":
                     accepted_count_partial += self.pcn.one_step_non_centered_new(self.Layers)
+                elif self.pcn_variant == "sari":
+                    accepted_count_partial += self.pcn.one_step_non_centered(self.Layers) 
                 else:
                     accepted_count_partial += self.pcn.oneStep(self.Layers)
             except np.linalg.LinAlgError as err:
@@ -193,7 +194,7 @@ class Simulation():
                 if (i+1)%(self.evaluation_interval) == 0:
                     self.accepted_count += accepted_count_partial
 
-                    # if self.non_centered:
+                    # if self.pcn_variant:
                     #     self.acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers))                    
                     # else:
                     self.acceptancePercentage = self.accepted_count/(i+1)
