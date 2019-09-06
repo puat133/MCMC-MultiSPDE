@@ -22,7 +22,7 @@ jitSerial = nb.jit(fastmath=FASTMATH,cache=CACHE)
 njitParallel = nb.njit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 jitParallel = nb.jit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 
-@njitParallel    
+@njitSerial
 def construct_w_Half(n):
     wHalf = np.random.randn(n)+1j*np.random.randn(n)
     # wHalf[0] = wHalf[0].real*np.sqrt(2)
@@ -37,7 +37,7 @@ def inner(u,v):
         sumUV += u[i]*v[i]
     return sumUV
 
-@njitSerial
+@nb.vectorize([nb.complex128(nb.int64,nb.float64)])
 def eigenFunction1D(i,t):
     """
     Return an eigen function of Laplacian operator in one dimension
@@ -69,7 +69,7 @@ def matMulti(A,D):
 #     # return 0.5*np.sum(np.log(np.linalg.eigvalsh(L.T.conj()@L)))
 #     # return  np.sum(np.log(np.absolute(np.linalg.eigvals(L))))
 
-@njitParallel
+@nb.vectorize([nb.float64(nb.float64)])
 def kappaFun(ut):
     """
     kappa function as a function of u in time domain
@@ -80,8 +80,8 @@ def kappaFun(ut):
     # return res
     return np.exp(-ut)
 
-# @njit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
-@njitParallel
+# @njitParallel
+@nb.vectorize([nb.float64(nb.float64)])
 def kappa_pow_min_nu(ut):
     # res = np.zeros(ut.shape[0],dtype=np.float64)
     # for i in nb.prange(ut.shape[0]):
@@ -90,7 +90,8 @@ def kappa_pow_min_nu(ut):
     # return kappaFun(ut)**(-1.5)
     return np.exp(1.5*ut)
 
-@njitParallel
+# @njitParallel
+@nb.vectorize([nb.float64(nb.float64)])
 def kappa_pow_half(ut):
     # res = np.zeros(ut.shape[0],dtype=np.float64)
     # for i in nb.prange(ut.shape[0]):
@@ -159,7 +160,7 @@ def finalizeWelford(existingAggregate):
     # else:
     return (mean, variance)
 
-@njitParallel
+@njitSerial
 def extend(uSymmetric,num): 
     n = (uSymmetric.shape[0]+1)//2
     if num> n:
@@ -169,7 +170,7 @@ def extend(uSymmetric,num):
     else: 
         return uSymmetric
 
-@njitParallel
+@njitSerial
 def symmetrize(w_half):
     w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
     return w
