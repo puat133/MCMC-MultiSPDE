@@ -27,6 +27,7 @@ spec = [
     ('H',nb.complex128[:,::1]),
     ('I',nb.float64[:,::1]),
     ('H_t_H',nb.float64[:,::1]),
+    ('H_dagger',nb.complex128[:,::1]),
     ('yBar',nb.float64[::1]),
     ('gibbs_step',nb.int64),
     ('aggresiveness',nb.float64),
@@ -56,8 +57,11 @@ class pCN():
         self.record_skip = 1
         self.record_count = 0
         self.max_record_history = 10000
-        temp = self.H.conj().T@self.H
-        self.H_t_H = 0.5*(temp+temp.conj().T).real
+        # temp = self.H.conj().T
+        # self.H_dagger = temp
+        temp2 = self.H.conj().T@self.H
+        self.H_t_H = 0.5*(temp2+temp2.conj().T).real
+        
         
 
 
@@ -171,7 +175,7 @@ class pCN():
 
         return accepted
 
-    def one_step_non_centered(self,Layers):
+    def one_step_non_centered_sari(self,Layers):
         accepted = 0
         Layers[self.n_layers-1].sample_non_centered()
         wNew = Layers[self.n_layers-1].new_noise_sample
@@ -218,7 +222,7 @@ class pCN():
         self.record_count += 1
         return accepted
         
-    def one_step_non_centered_new(self,Layers):
+    def one_step_non_centered_dunlop(self,Layers):
         accepted = 0
         logRatio = 0.0
         for i in range(self.n_layers-1):
@@ -232,15 +236,17 @@ class pCN():
         meas_var = self.measurement.stdev**2
         y = self.measurement.yt
         L = Layers[-1].LMat.current_L
-        r = L.conj().T@L + self.H_t_H
+        temp = L.conj().T@L
+        r = 0.5*(temp+temp.conj().T) + self.H_t_H
         c = np.linalg.cholesky(r)
-        Ht = np.linalg.solve(c,self.H.T)
+        Ht = np.linalg.solve(c,self.H.conj().T)
         R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
         logRatio = 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
-        r = L.conj().T@L + self.H_t_H
+        temp = L.conj().T@L
+        r = 0.5*(temp+temp.conj().T) + self.H_t_H
         c = np.linalg.cholesky(r)
-        Ht = np.linalg.solve(c,self.H.T)
+        Ht = np.linalg.solve(c,self.H.conj().T)
         R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
         logRatio -= 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
         # Ht = np.linalg.solve(L.T.conj(),self.H.T)

@@ -179,9 +179,9 @@ class Simulation():
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
                 if self.pcn_variant == "dunlop":
-                    accepted_count_partial += self.pcn.one_step_non_centered_new(self.Layers)
+                    accepted_count_partial += self.pcn.one_step_non_centered_dunlop(self.Layers)
                 elif self.pcn_variant == "sari":
-                    accepted_count_partial += self.pcn.one_step_non_centered(self.Layers) 
+                    accepted_count_partial += self.pcn.one_step_non_centered_sari(self.Layers) 
                 else:
                     accepted_count_partial += self.pcn.oneStep(self.Layers)
             except np.linalg.LinAlgError as err:
