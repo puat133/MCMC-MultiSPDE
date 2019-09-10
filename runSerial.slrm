@@ -4,4 +4,4 @@
 #SBATCH --cores-per-socket=8
 module load anaconda3
 
-python run.py --n=64 --n-samples=10000000  --n-layers=3 --sigma-scaling=1e-3 --include-history --print-progress --enable-beta-feedback --evaluation-interval=100 --variant=dunlop
+python run.py --n=64 --n-samples=100000  --n-layers=3 --sigma-scaling=1e-1 --include-history --print-progress --enable-beta-feedback --evaluation-interval=100 --variant=sari
