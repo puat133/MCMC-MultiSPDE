@@ -37,6 +37,8 @@ def inner(u,v):
         sumUV += u[i]*v[i]
     return sumUV
 
+
+# @njitParallel
 @nb.vectorize([nb.complex128(nb.int64,nb.float64)],cache=CACHE,nopython=True)
 def eigenFunction1D(i,t):
     """
@@ -79,6 +81,7 @@ def kappaFun(ut):
     #     res[i] = math.exp(-ut[i])
     # return res
     return np.exp(-ut)
+
 
 # @njitParallel
 @nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
