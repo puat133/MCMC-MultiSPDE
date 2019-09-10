@@ -38,8 +38,8 @@ def inner(u,v):
     return sumUV
 
 
-# @njitParallel
-@nb.vectorize([nb.complex128(nb.int64,nb.float64)],cache=CACHE,nopython=True)
+# @nb.vectorize([nb.complex128(nb.int64,nb.float64)],cache=CACHE,nopython=True)
+@njitParallel
 def eigenFunction1D(i,t):
     """
     Return an eigen function of Laplacian operator in one dimension
@@ -71,7 +71,8 @@ def matMulti(A,D):
 #     # return 0.5*np.sum(np.log(np.linalg.eigvalsh(L.T.conj()@L)))
 #     # return  np.sum(np.log(np.absolute(np.linalg.eigvals(L))))
 
-@nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
+# @nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
+@njitParallel
 def kappaFun(ut):
     """
     kappa function as a function of u in time domain
@@ -83,8 +84,9 @@ def kappaFun(ut):
     return np.exp(-ut)
 
 
-# @njitParallel
-@nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
+
+# @nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
+@njitParallel
 def kappa_pow_min_nu(ut):
     # res = np.zeros(ut.shape[0],dtype=np.float64)
     # for i in nb.prange(ut.shape[0]):
@@ -93,8 +95,9 @@ def kappa_pow_min_nu(ut):
     # return kappaFun(ut)**(-1.5)
     return np.exp(1.5*ut)
 
-# @njitParallel
-@nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
+
+# @nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
+@njitParallel
 def kappa_pow_half(ut):
     # res = np.zeros(ut.shape[0],dtype=np.float64)
     # for i in nb.prange(ut.shape[0]):
