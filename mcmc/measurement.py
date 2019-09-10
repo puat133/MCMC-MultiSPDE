@@ -7,7 +7,7 @@ spec = [
     ('yt',nb.float64[::1]),
     ('vt',nb.float64[::1]),
     ('t',nb.float64[::1]),
-    # ('H',nb.complex128[:,::1]),
+    ('signal_type',nb.typeof("string")),
     ('num_sample',nb.int64),
     ('stdev',nb.float64),
     ('t_end', nb.float64),               
@@ -15,12 +15,13 @@ spec = [
 ]
 @nb.jitclass(spec)
 class Measurement():
-    def __init__(self,num_sample,stdev,t_start=0.0,t_end=1.0):
+    def __init__(self,num_sample,stdev,t_start=0.0,t_end=1.0,signal_type='smooth_discontinuous'):
         self.num_sample = num_sample
         self.stdev = stdev
         self.t_start = t_start
         self.t_end = t_end
         self.t = np.linspace(self.t_start,self.t_end,self.num_sample)
+        self.signal_type = signal_type
         self.sampleMeasurement()
         
 
@@ -37,20 +38,25 @@ class Measurement():
         
         
         self.vt = np.zeros(self.t.shape[0])
-        for i in range(self.t.shape[0]):
-            # if 0<self.t[i]< 0.5*self.t_end:
-            #    self.vt[i] = np.exp(4 - 1/(2*self.t[i]-4*self.t[i]**2))
-            #    continue
-            # if 0.7*self.t_end<=self.t[i]<=0.8*self.t_end:
-            #    self.vt[i] = 1
-            #    continue
-            # if 0.8*self.t_end< self.t[i] <= 0.9*self.t_end:
-            #    self.vt[i] = -1
+        if self.signal_type == 'smooth_discontinuous':
+            for i in range(self.t.shape[0]):
+                if 0<self.t[i]< 0.5*self.t_end:
+                   self.vt[i] = np.exp(4 - 1/(2*self.t[i]-4*self.t[i]**2))
+                   continue
+                if 0.7*self.t_end<=self.t[i]<=0.8*self.t_end:
+                   self.vt[i] = 1
+                   continue
+                if 0.8*self.t_end< self.t[i] <= 0.9*self.t_end:
+                   self.vt[i] = -1
+        else:
+            for i in range(self.t.shape[0]):
+                # box signal
+                if 0.2*self.t_end<self.t[i]< 0.8*self.t_end:
+                    self.vt[i] = 1
+                    continue
 
-            # box signal
-            if 0.2*self.t_end<self.t[i]< 0.8*self.t_end:
-                 self.vt[i] = 1
-                 continue
+                
+                
 
         e = self.stdev*np.random.randn(self.vt.shape[0])
         self.yt = self.vt+e

@@ -42,6 +42,7 @@ if __name__=='__main__':
     parser.add_argument('--sigma-scaling',default=1e-3,type=float,help='Sigma_scaling constant, Default=1e-4')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
     parser.add_argument('--variant',default="sari",type=str,help='preconditioned Crank Nicholson multilayered algorithm variant, Default=sari')
+    parser.add_argument('--measurement-signal-type',default="box",type=str,help='Test measurement signal type, Default=smooth_discontinuous')
     ph.add_boolean_argument(parser,'include-history',default=False,messages='Whether to include Layer simulation history in hdf5, Default=False')
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=False,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
@@ -51,7 +52,7 @@ if __name__=='__main__':
     args = parser.parse_args()
     sim = s.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,beta = args.beta,num = args.num,
                     kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
-                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant)
+                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant,measurement_signal_type=args.measurement_signal_type)
     sim.pcn.beta_feedback_gain = 2.1
     sim.run()
     sim.analyze()

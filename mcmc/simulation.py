@@ -56,7 +56,7 @@ import h5py
 # @nb.jitclass(spec)
 class Simulation():
     def __init__(self,n_layers,n_samples,n,beta,num,kappa,sigma_0,sigma_v,sigma_scaling,evaluation_interval,printProgress,
-                    seed,burn_percentage,enable_beta_feedback,pcn_variant):
+                    seed,burn_percentage,enable_beta_feedback,pcn_variant,measurement_signal_type):
         self.n_samples = n_samples
         self.meas_samples_num = num
         self.evaluation_interval = evaluation_interval
@@ -99,7 +99,7 @@ class Simulation():
         # uStdev[0] /= 2 #scaled
 
         meas_std = 0.1
-        measurement = meas.Measurement(num,meas_std,self.t_start,self.t_end)
+        measurement = meas.Measurement(num,meas_std,self.t_start,self.t_end,measurement_signal_type)
         # pcn = pCN.pCN(n_layers,rg,measurement,f,beta)
         self.pcn_variant = pcn_variant
         self.pcn = pCN.pCN(n_layers,rg,measurement,f,beta,self.pcn_variant)
