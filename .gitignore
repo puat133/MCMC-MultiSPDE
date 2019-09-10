@@ -110,3 +110,6 @@ venv.bak/
 matrices/
 
 *.cpp
+
+#slurm .output files
+.out
