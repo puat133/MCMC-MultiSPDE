@@ -141,7 +141,8 @@ class Simulation():
                     lay.current_sample_sym, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
                     lay.current_sample = lay.current_sample_sym[self.pcn.fourier.basis_number-1:]
                 else:
-                    lay = layer.Layer(False,self.sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
+                    # lay = layer.Layer(False,self.sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
+                    lay = layer.Layer(False,self.sqrtBeta_v*sigma_scaling,i,self.n_samples,self.pcn,Layers[i-1].current_sample)
             lay.update_current_sample()
 
             # if self.pcn_variant:
