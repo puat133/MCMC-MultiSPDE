@@ -50,9 +50,11 @@ class Tomograph:
         self.image_num_points = self.flattened_target_image.shape[0]
         self.n_theta = n_theta
         self.theta = np.linspace(0., 180., self.n_theta, endpoint=False)
-        self.n_r = math.ceil(np.sqrt(2)*self.dim)
-        self.r = np.linspace(-self.n_r/2,self.n_r/2,self.n_r)
-        temp = np.linspace(0,1,num=self.dim,endpoint=True)
+        # self.n_r = math.ceil(np.sqrt(2)*self.dim)
+        self.n_r = self.dim
+        # self.r = np.linspace(-self.n_r/2,self.n_r/2,self.n_r)
+        self.r = np.linspace(-0.5,0.5,self.n_r)
+        temp = np.linspace(-0.5,0.5,num=self.dim,endpoint=True)
         ty,tx = np.meshgrid(temp,temp)
         self.ty = ty
         self.tx = tx
@@ -68,26 +70,25 @@ class Tomograph:
         if not matrix_folder.exists():
             matrix_folder.mkdir()
         
-        radon_matrix_file_name = 'radon_matrix_{0}x{1}.npz'.format(str(self.dim), str(self.theta.shape[0]))
-        self.radon_matrix_file = matrix_folder / radon_matrix_file_name
-        if not self.radon_matrix_file.exists():
-            # print(os.getcwd())
-            from .matrices import radonmatrix
-            self.radonoperator = radonmatrix(self.dim,self.theta*np.pi/180).T
-            # self.radonoperator = radonmatrix(self.dim,self.theta)
-            sp.save_npz(str(self.radon_matrix_file),self.radonoperator)
-        else:
-            self.radonoperator = sp.load_npz(self.radon_matrix_file)
-            # self.radonoperator = sp.load_npz(matrix_file)
+        # radon_matrix_file_name = 'radon_matrix_{0}x{1}.npz'.format(str(self.dim), str(self.theta.shape[0]))
+        # self.radon_matrix_file = matrix_folder / radon_matrix_file_name
+        # if not self.radon_matrix_file.exists():
+        #     # print(os.getcwd())
+        #     from .matrices import radonmatrix
+        #     self.radonoperator = radonmatrix(self.dim,self.theta*np.pi/180).T
+        #     # self.radonoperator = radonmatrix(self.dim,self.theta)
+        #     sp.save_npz(str(self.radon_matrix_file),self.radonoperator)
+        # else:
+        #     self.radonoperator = sp.load_npz(self.radon_matrix_file)
+        #     # self.radonoperator = sp.load_npz(matrix_file)
 
-        self.radonoperator = sp.csc_matrix(self.radonoperator)
-        self.radonoperator = self.radonoperator / self.dim
-
-        self.pure_vector = self.flattened_target_image@self.radonoperator
+        # self.radonoperator = sp.csc_matrix(self.radonoperator)
+        # self.radonoperator = self.radonoperator / self.dim
+        self.pure_sinogram = radon(self.target_image,self.theta,circle=True)
+        self.sinogram = self.pure_sinogram + self.meas_std*np.random.randn(self.pure_sinogram.shape[0],self.pure_sinogram.shape[1])
+        # self.pure_vector =  self.pure_sinogram.ravel()#self.flattened_target_image@self.radonoperator
         # self.pure_vector = self.radonoperator@self.flattened_target_image
-        self.vector = self.pure_vector + np.max(self.pure_vector)*self.meas_std*np.random.randn(self.n_r*self.theta.shape[0])
-        self.sinogram = np.reshape(self.vector,(self.n_r,self.n_theta))
-        self.pure_sinogram = np.reshape(self.pure_vector,(self.n_r,self.n_theta))
+        # self.vector = 
         self.sinogram_flattened = self.sinogram.ravel()
         self.pure_sinogram_flattened = self.pure_sinogram.ravel()
 
@@ -108,21 +109,25 @@ class Tomograph:
 
 
     def constructH(self):
-        return _constructH(self.radonoperator,self.n_r,self.n_theta,self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
-        # return _constructH(self.theta,self.r,self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
+        # return _constructH(self.radonoperator,self.n_r,self.n_theta,self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
+        theta_grid,r_grid = np.meshgrid(self.theta,self.r)
+        return _constructH(theta_grid.ravel(),r_grid.ravel(),self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
 
-@jitParallel
-def _constructH(radonoperator,n_r,n_theta,tx,ty,ix,iy):
+@njitParallel
+def _constructH(r,theta,tx,ty,kx,ky):
     """
     (iX,iY) are meshgrid for Fourier Index
     (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
     """
-    H = np.empty((ix.shape[0],n_r*n_theta),dtype=np.complex64)
-    for i in nb.prange(ix.shape[0]):
+    H = np.empty((kx.shape[0],r.shape[0]),dtype=np.complex64)
+    for i in nb.prange(kx.shape[0]):
         #TODO: this is point measurement, change this to a proper H
-        eigenSlice = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
-        H[i,:] = eigenSlice@radonoperator
-        # H[i,:] = u2.eigenFunction2D(tx,ty,ix[i],iy[i]).ravel()
+        sTheta = np.sin(theta)
+        cTheta = np.cos(theta)
+        k_tilde_u = kx[i]*cTheta+ky[i]*sTheta
+        k_tilde_v = -kx[i]*sTheta+ky[i]*cTheta
+        l = (0.25-r**2)
+        H[i,:] = np.exp(1j*2*np.pi*k_tilde_u*r)*(np.sin(2*np.pi*k_tilde_v*l))/(np.pi*k_tilde_y)
     return H.T
 
 
@@ -286,7 +291,8 @@ class Layer():
         self.current_sample = self.new_sample.copy()
         self.current_sample_symmetrized = self.new_sample_symmetrized.copy()
         self.current_sample_scaled_norm = self.new_sample_scaled_norm
-        self.current_log_L_det = self.new_log_L_det    
+        self.current_log_L_det = self.new_log_L_det
+        
 
 
 
