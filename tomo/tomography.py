@@ -110,24 +110,28 @@ class Tomograph:
 
     def constructH(self):
         # return _constructH(self.radonoperator,self.n_r,self.n_theta,self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
-        theta_grid,r_grid = np.meshgrid(self.theta,self.r)
-        return _constructH(theta_grid.ravel(),r_grid.ravel(),self.tx.ravel(),self.ty.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
+        theta_grid,r_grid = np.meshgrid(self.theta*np.pi/180,self.r)
+        return _constructH(r_grid.ravel(),theta_grid.ravel(),self.ix.ravel(),self.iy.ravel())/self.meas_std
 
 @njitParallel
-def _constructH(r,theta,tx,ty,kx,ky):
+def _constructH(r,theta,kx,ky):
     """
     (iX,iY) are meshgrid for Fourier Index
     (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
     """
     H = np.empty((kx.shape[0],r.shape[0]),dtype=np.complex64)
-    for i in nb.prange(kx.shape[0]):
-        #TODO: this is point measurement, change this to a proper H
-        sTheta = np.sin(theta)
-        cTheta = np.cos(theta)
-        k_tilde_u = kx[i]*cTheta+ky[i]*sTheta
-        k_tilde_v = -kx[i]*sTheta+ky[i]*cTheta
-        l = (0.25-r**2)
-        H[i,:] = np.exp(1j*2*np.pi*k_tilde_u*r)*(np.sin(2*np.pi*k_tilde_v*l))/(np.pi*k_tilde_y)
+    for m in nb.prange(kx.shape[0]):
+        for n in nb.prange(r.shape[0]):
+            #TODO: this is point measurement, change this to a proper H
+            sTheta = np.sin(theta[n])
+            cTheta = np.cos(theta[n])
+            k_tilde_u = kx[m]*cTheta+ky[m]*sTheta
+            k_tilde_v = -kx[m]*sTheta+ky[m]*cTheta
+            l = np.sqrt(0.25-r[n]**2)
+            if k_tilde_v != 0:
+                H[m,n] = np.exp(1j*2*np.pi*k_tilde_u*r[n])*(np.sin(2*np.pi*k_tilde_v*l))/(np.pi*k_tilde_v)
+            else:
+                H[i,n] = np.exp(1j*2*np.pi*k_tilde_u*r[n])*(2*l)
     return H.T
 
 
