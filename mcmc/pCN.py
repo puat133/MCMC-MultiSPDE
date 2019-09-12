@@ -29,6 +29,7 @@ spec = [
     ('H_t_H',nb.float64[:,::1]),
     ('H_dagger',nb.complex128[:,::1]),
     ('yBar',nb.float64[::1]),
+    ('y',nb.float64[::1]),
     ('gibbs_step',nb.int64),
     ('aggresiveness',nb.float64),
     ('target_acceptance_rate',nb.float64),
@@ -49,7 +50,9 @@ class pCN():
         self.variant=variant
         self.H = self.measurement.get_measurement_matrix(self.fourier.basis_number)/self.measurement.stdev
         self.I = np.eye(self.measurement.num_sample)
+        self.y = self.measurement.yt/self.measurement.stdev
         self.yBar = np.concatenate((self.measurement.yt/self.measurement.stdev,np.zeros(2*self.fourier.basis_number-1)))
+        
         self.gibbs_step = 0
         self.aggresiveness = 0.2
         self.target_acceptance_rate = 0.234
@@ -234,29 +237,32 @@ class pCN():
                 Layers[i].new_sample_sym = Layers[i].stdev_sym*Layers[i].new_noise_sample
             Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number-1:]
         meas_var = self.measurement.stdev**2
-        y = self.measurement.yt
+        # y = self.measurement.yt
         L = Layers[-1].LMat.current_L
         temp = L.conj().T@L
         r = 0.5*(temp+temp.conj().T) + self.H_t_H
         c = np.linalg.cholesky(r)
         Ht = np.linalg.solve(c,self.H.conj().T)
-        R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
-        logRatio = 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
+        
+        # R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
+        # R_inv = (self.I - (Ht.conj().T@Ht).real)/meas_var
+        # logRatio -= 0.5*(self.y@R_inv@self.y - np.linalg.slogdet(R_inv)[1])
+        R_inv = self.I - (Ht.conj().T@Ht).real
+        logRatio = 0.5*(self.y@R_inv@self.y - np.linalg.slogdet(R_inv/meas_var)[1])
+
+        
+
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
         temp = L.conj().T@L
         r = 0.5*(temp+temp.conj().T) + self.H_t_H
         c = np.linalg.cholesky(r)
         Ht = np.linalg.solve(c,self.H.conj().T)
-        R_inv = self.I/meas_var - (Ht.conj().T@Ht).real/meas_var
-        logRatio -= 0.5*(y@R_inv@y - np.linalg.slogdet(R_inv)[1])
-        # Ht = np.linalg.solve(L.T.conj(),self.H.T)
-        # R = (Ht.T.conj()@Ht + self.I).real*meas_var
-        # logRatio = 0.5*(y@(np.linalg.solve(R,y))+np.linalg.slogdet(R)[1])
-        # L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
-        # Ht = np.linalg.solve(L.T.conj(),self.H.T)
-        # R = (Ht.T.conj()@Ht + self.I).real*meas_var
-        # # C = np.linalg.cholesky(R)
-        # logRatio -= 0.5*(y@(np.linalg.solve(R,y))+np.linalg.slogdet(R)[1])
+        
+        # R_inv = (self.I - (Ht.conj().T@Ht).real)/meas_var
+        # logRatio -= 0.5*(self.y@R_inv@self.y - np.linalg.slogdet(R_inv)[1])
+        R_inv = self.I - (Ht.conj().T@Ht).real
+        logRatio -= 0.5*(self.y@R_inv@self.y - np.linalg.slogdet(R_inv/meas_var)[1])
+        
                         
 
 
@@ -278,12 +284,57 @@ class pCN():
                     Layers[i].LMat.set_current_L_to_latest()
 
             # only record when needed
+        #adapt sqrtBetas
+        self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
             # print('recorded')
             for i in range(self.n_layers):
                 Layers[i].record_sample()
+            
+            
+
         self.record_count += 1
-        return accepted        
+
+        
+
+        return accepted
+
+    def one_step_for_sqrtBetas(self,Layers):
+        pcn_step_sqrtBetas = 1e-1
+        stdev_sqrtBetas = 1
+        sqrt_beta_noises = stdev_sqrtBetas*np.random.randn(self.n_layers)
+        sqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
+        propSqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
+
+        for i in range(self.n_layers):
+            sqrtBetas[i] = Layers[i].sqrt_beta
+            temp = np.sqrt(1-pcn_step_sqrtBetas**2)*sqrtBetas[i] + pcn_step_sqrtBetas*sqrt_beta_noises[i]
+            propSqrtBetas[i] = max(temp,1e-4)
+            if i==0:
+                Layers[i].new_sample_sym = (propSqrtBetas[i]/sqrtBetas[i])*Layers[i].stdev_sym*Layers[i].current_noise_sample
+            else:
+                Layers[i].LMat.construct_from_with_sqrt_beta(Layers[i-1].new_sample,propSqrtBetas[i])
+                if i < self.n_layers-1:
+                    Layers[i].new_sample_sym = np.linalg.solve(Layers[i].LMat.latest_computed_L,Layers[i].current_noise_sample)
+                else:        
+                    wNew = Layers[-1].current_noise_sample
+                    eNew = np.random.randn(self.measurement.num_sample)
+                    wBar = np.concatenate((eNew,wNew))
+                    LBar = np.vstack((self.H,Layers[-1].LMat.latest_computed_L))
+                    v, res, rnk, s = np.linalg.lstsq(LBar,self.yBar-wBar )
+                    Layers[-1].new_sample_sym = v
+                    Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number-1:]
+
+        logRatio = 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].current_sample_sym))
+        logRatio -= 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].new_sample_sym))
+
+        if logRatio>np.log(np.random.rand()):
+            # print('Proposal sqrt_beta accepted!')
+            for i in range(self.n_layers):
+                Layers[i].sqrt_beta = propSqrtBetas[i]
+
+        
+
     # def one_step_non_centered_new(self,Layers):
     #     accepted = 0
         

@@ -34,6 +34,16 @@ class Lmatrix():
         self.latest_computed_L = L
         return L
 
+    def construct_from_with_sqrt_beta(self,uHalf,sqrt_beta):
+        assert uHalf.shape[0] == self.fourier.basis_number
+        Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf,util.kappa_pow_min_nu)
+        Ku_pow_half = self.fourier.constructMatexplicit(uHalf,util.kappa_pow_half)
+        L = ( util.matMulti(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_half)/sqrt_beta
+        
+        #set LatestComputedL as L, but dont change currentL
+        self.latest_computed_L = L
+        return L
+
     def logDet(self,new):
         """
         # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues

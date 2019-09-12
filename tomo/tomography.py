@@ -131,7 +131,7 @@ def _constructH(r,theta,kx,ky):
             if k_tilde_v != 0:
                 H[m,n] = np.exp(1j*2*np.pi*k_tilde_u*r[n])*(np.sin(2*np.pi*k_tilde_v*l))/(np.pi*k_tilde_v)
             else:
-                H[i,n] = np.exp(1j*2*np.pi*k_tilde_u*r[n])*(2*l)
+                H[m,n] = np.exp(1j*2*np.pi*k_tilde_u*r[n])*(2*l)
     return H.T
 
 
