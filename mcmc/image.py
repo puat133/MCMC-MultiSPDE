@@ -22,6 +22,7 @@ jitParallel = nb.jit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 
 specFourier = [
     ('basis_number', nb.int64),               
+    ('basis_number_2D_ravel', nb.int64),
     ('extended_basis_number', nb.int64),
     ('basis_number_2D', nb.int64),
     ('basis_number_2D_sym', nb.int64),               
@@ -43,6 +44,7 @@ class FourierAnalysis_2D:
         self.basis_number = basis_number
         self.extended_basis_number = extended_basis_number
         self.basis_number_2D = (2*basis_number-1)*basis_number
+        self.basis_number_2D_ravel = (2*basis_number*basis_number-2*basis_number+1)
         self.basis_number_2D_sym = (2*basis_number-1)*(2*basis_number-1)
         self.extended_basis_number_2D = (2*extended_basis_number-1)*extended_basis_number
         self.extended_basis_number_2D_sym = (2*extended_basis_number-1)*(2*extended_basis_number-1)
@@ -65,7 +67,9 @@ class FourierAnalysis_2D:
         self.Index = Index
     
     def inverseFourierLimited(self,uHalf2D):
+        #if order = 'C' then it needs transpose
         return u2.irfft2(uHalf2D,self.extended_basis_number)
+        # return u2.irfft2(uHalf2D,self.extended_basis_number)
 
     def fourierTransformHalf(self,z):
         return u2.rfft2(z,self.basis_number)
@@ -77,7 +81,7 @@ class FourierAnalysis_2D:
         return u2.constructU(uHalf2D,self.Index)
     
     def constructMatexplicit(self,uHalf2D,fun):
-        temp = fun(self.inverseFourierLimited(uHalf2D))
+        temp = fun(self.inverseFourierLimited(uHalf2D).T)
         temp2 = self.fourierTransformHalf(temp)
         return self.constructU(temp2)
 
@@ -100,7 +104,7 @@ class Lmatrix_2D:
         self.latest_computed_L = self.current_L
         
 
-    def construct_from(self,uHalf2D):
+    def construct_from_2D(self,uHalf2D):
         assert uHalf2D.shape[1] == self.fourier.basis_number
         Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,u2.kappa_pow_min_nu)
         Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,u2.kappa_pow_d_per_2)
@@ -109,8 +113,9 @@ class Lmatrix_2D:
         self.latest_computed_L = L
         return L
 
-    def construct_from_ravelled_2D_u(self,u_2D_ravelled):
-        return u2.from_u_2D_ravel_to_uHalf_2D(u_2D_ravelled,f.basis_number)
+    def construct_from(self,uHalf):
+        uHalf2D = u2.from_u_2D_ravel_to_uHalf_2D(util.symmetrize(uHalf),self.fourier.basis_number)
+        return self.construct_from_2D(uHalf2D)
          
     def logDet(self,new):
         """
@@ -133,6 +138,7 @@ class Lmatrix_2D:
 specRG = [
     # ('fourier',fourier_type),
     ('basis_number',nb.int64),
+    ('basis_number_2D_ravel',nb.int64),#This is half+1 of Fourier Frequency 2D
     ('sqrt2',nb.float64)
 ]
 @nb.jitclass(specRG)
@@ -140,14 +146,27 @@ class RandomGenerator_2D:
     def __init__(self,basis_number):
         # self.fourier = fourier
         self.basis_number = basis_number
+        self.basis_number_2D_ravel = (2*basis_number*basis_number-2*basis_number+1)
         self.sqrt2 = np.sqrt(2)
 
     def construct_w_Half_2D(self):
         return u2.construct_w_Half_2D(self.basis_number)
-
     
-    def construct_w_Half_2D_ravelled(self):
-        return u2.construct_w_Half_2D_ravelled(self.basis_number)
+    def construct_w_Half(self):
+        return util.construct_w_Half(self.basis_number_2D_ravel)
+    
+    def construct_w(self):
+        w_half = self.construct_w_Half()
+        w = self.symmetrize(w_half)
+        return w
+        
+    def symmetrize(self,w_half):
+        w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
+        # w = np.zeros(2*w_half.shape[0]-1,dtype=np.complex128)
+        return w
+    
+    # def construct_w_Half_2D_ravelled(self):
+    #     return u2.construct_w_Half_2D_ravelled(self.basis_number)
 
     def fromUHalfToUHalf2D(self,uHalf):
         return u2.fromUHalfToUHalf2D(uHalf,self.basis_number)
@@ -155,8 +174,8 @@ class RandomGenerator_2D:
     def fromUHalf2DToUHalf(self,uHalf2D):
         return u2.fromUHalf2DToUHalf(uHalf2D,self.basis_number)
 
-    def construct_w_2D_ravelled(self):
-        return u2.construct_w_2D_ravelled(self.basis_number)
+    # def construct_w_2D_ravelled(self):
+    #     return u2.construct_w_2D_ravelled(self.basis_number)
 
     def symmetrize_2D(self,uHalf2D):
         return u2.symmetrize_2D(uHalf2D)
@@ -218,7 +237,7 @@ class pCN():
 
         self.I = np.eye(self.measurement.num_sample)
         self.y = self.measurement.y/self.measurement.stdev
-        self.yBar = np.concatenate((self.y,np.zeros(2*self.fourier.basis_number-1)))
+        self.yBar = np.concatenate((self.y,np.zeros(2*self.fourier.basis_number_2D_ravel-1)))
         
     
         self.aggresiveness = 0.2
@@ -256,7 +275,7 @@ class pCN():
                 Layers[i].new_sample_sym = np.linalg.solve(Layers[i].LMat.latest_computed_L,Layers[i].new_noise_sample)
             else:
                 Layers[i].new_sample_sym = Layers[i].stdev_sym*Layers[i].new_noise_sample
-            Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number-1:]
+            Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
         meas_var = self.measurement.stdev**2
         # y = self.measurement.yt
         L = Layers[-1].LMat.current_L
@@ -287,12 +306,13 @@ class pCN():
             LBar = np.vstack((self.H,Layers[-1].LMat.latest_computed_L))
             v, res, rnk, s = np.linalg.lstsq(LBar,self.yBar-wBar )#,rcond=None)
             Layers[-1].new_sample_sym = v
-            Layers[-1].new_sample = v[self.fourier.basis_number-1:]
+            Layers[-1].new_sample = v[self.fourier.basis_number_2D_ravel-1:]
             for i in range(self.n_layers):
                 Layers[i].update_current_sample()
                 if not Layers[i].is_stationary:
                     Layers[i].LMat.set_current_L_to_latest()
 
+        # self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
             self.sqrtBetas_history[self.record_count,:] = self.Layers_sqrtBetas
             for i in range(self.n_layers):
@@ -324,7 +344,7 @@ class pCN():
                     LBar = np.vstack((self.H,Layers[-1].LMat.latest_computed_L))
                     v, res, rnk, s = np.linalg.lstsq(LBar,self.yBar-wBar )
                     Layers[-1].new_sample_sym = v
-                    Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number-1:]
+                    Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
 
         logRatio = 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].current_sample_sym))
         logRatio -= 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].new_sample_sym))
@@ -337,7 +357,7 @@ class pCN():
                 Layers[i].LMat.set_current_L_to_latest()
                 if Layers[i].is_stationary:
                     Layers[i].stdev_sym = stdev_sym_temp
-                    Layers[i].stdev = Layers[i].stdev_sym[self.fourier.basis_number-1:]
+                    Layers[i].stdev = Layers[i].stdev_sym[self.fourier.basis_number_2D_ravel-1:]
 
 """
 Sample in this Layer object is always one complex dimensional vector
@@ -351,15 +371,15 @@ class Layer():
         self.n_samples = n_samples
         self.pcn = pcn
 
-        zero_compl_dummy =  np.zeros(self.pcn.fourier.basis_number,dtype=np.complex128)
-        ones_compl_dummy =  np.ones(self.pcn.fourier.basis_number,dtype=np.complex128)
+        zero_compl_dummy =  np.zeros(self.pcn.fourier.basis_number_2D_ravel,dtype=np.complex128)
+        ones_compl_dummy =  np.ones(self.pcn.fourier.basis_number_2D_ravel,dtype=np.complex128)
 
         self.stdev = ones_compl_dummy
         self.stdev_sym = util.symmetrize(self.stdev)
-        self.samples_history = np.empty((self.n_samples, self.pcn.fourier.basis_number), dtype=np.complex128)
+        self.samples_history = np.empty((self.n_samples, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex128)
     
         self.LMat = Lmatrix_2D(self.pcn.fourier,self.sqrt_beta)
-        self.current_noise_sample = self.pcn.random_gen.construct_w_Half_2D_ravelled()#noise sample always symmetric
+        self.current_noise_sample = self.pcn.random_gen.construct_w()#noise sample always symmetric
         self.new_noise_sample = self.current_noise_sample.copy()
         
         
@@ -367,6 +387,7 @@ class Layer():
             
             self.current_sample = init_sample
             self.new_sample = init_sample
+            self.new_sample_sym = self.pcn.random_gen.symmetrize(self.new_sample)
             self.new_sample_scaled_norm = 0
             self.new_log_L_det = 0
             #numba need this initialization. otherwise it will not compile
@@ -377,11 +398,13 @@ class Layer():
         else:
             self.LMat.construct_from(init_sample)
             self.LMat.set_current_L_to_latest()
-            self.new_sample = np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w_2D_ravelled())
+            self.new_sample_sym = np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
+            self.new_sample = self.new_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
             self.new_sample_scaled_norm = util.norm2(self.LMat.current_L@self.new_sample_sym)#ToDO: Modify this
             self.new_log_L_det = self.LMat.logDet(True)#ToDO: Modify this
             # #numba need this initialization. otherwise it will not compile
             self.current_sample = init_sample.copy()
+            self.current_sample_sym = self.new_sample_sym.copy()
             self.current_sample_scaled_norm = self.new_sample_scaled_norm
             self.current_log_L_det = self.new_log_L_det   
             
@@ -392,23 +415,25 @@ class Layer():
     def sample(self):
         #if it is the last layer
         if self.order_number == self.pcn.n_layers -1:
-            wNew = self.pcn.random_gen.construct_w_2D_ravelled()
+            wNew = self.pcn.random_gen.construct_w()
             eNew = np.random.randn(self.pcn.measurement.num_sample)
             wBar = np.concatenate((eNew,wNew))
             
             LBar = np.vstack((self.pcn.H,self.LMat.current_L))
 
             #update v
-            self.new_sample, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar )#,rcond=None)
+            self.new_sample_sym, res, rnk, s = np.linalg.lstsq(LBar,self.pcn.yBar-wBar )#,rcond=None)
+            self.new_sample = self.new_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
             # return new_sample
         elif self.order_number == 0:
-            self.new_sample = self.pcn.betaZ*self.current_sample + self.pcn.beta*self.stdev*self.pcn.random_gen.construct_w_2D_ravelled()
+            self.new_sample = self.pcn.betaZ*self.current_sample + self.pcn.beta*self.stdev*self.pcn.random_gen.construct_w_half()
         else:
-            self.new_sample_sym = self.pcn.betaZ*self.current_sample_sym + self.pcn.beta*np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w_2D_ravelled())
+            self.new_sample_sym = self.pcn.betaZ*self.current_sample_sym + self.pcn.beta*np.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
+            self.new_sample = self.new_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
             
 
     def sample_non_centered(self):
-        self.new_noise_sample = self.pcn.betaZ*self.current_noise_sample+self.pcn.beta*self.pcn.random_gen.construct_w_2D_ravelled()
+        self.new_noise_sample = self.pcn.betaZ*self.current_noise_sample+self.pcn.beta*self.pcn.random_gen.construct_w()
 
     def record_sample(self):
         self.samples_history[self.i_record,:] = self.current_sample.copy()
@@ -416,6 +441,7 @@ class Layer():
     
     def update_current_sample(self):
         self.current_sample = self.new_sample.copy()
+        self.current_sample_sym = self.new_sample_sym.copy()
         self.current_sample_scaled_norm = self.new_sample_scaled_norm
         self.current_log_L_det = self.new_log_L_det
         self.current_noise_sample = self.new_noise_sample.copy()      
