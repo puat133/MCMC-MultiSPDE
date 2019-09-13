@@ -115,6 +115,10 @@ class Simulation():
             Layers = List()
         # Layers = []
         # factor = 1e-8
+        self.pcn.record_skip = np.max([1,self.n_samples//self.pcn.max_record_history])
+        history_length = np.min([self.n_samples,self.pcn.max_record_history]) 
+        self.pcn.sqrtBetas_history = np.empty((history_length, self.n_layers), dtype=np.float64)
+
         for i in range(self.n_layers):
             if i==0:
                 init_sample = np.linalg.solve(Lu,self.random_gen.construct_w())[self.fourier.basis_number-1:]
@@ -143,17 +147,18 @@ class Simulation():
                 else:
                     # lay = layer.Layer(False,self.sqrtBeta_v*np.sqrt(sigma_scaling),i,self.n_samples,self.pcn,Layers[i-1].current_sample)
                     lay = layer.Layer(False,self.sqrtBeta_v*sigma_scaling,i,self.n_samples,self.pcn,Layers[i-1].current_sample)
+            
             lay.update_current_sample()
-
+            self.pcn.Layers_sqrtBetas[i] = lay.sqrt_beta
             # if self.pcn_variant:
             #     self.pcn.record_skip = np.max([1,(lay.n_samples*self.n_layers)//self.pcn.max_record_history])
             #     history_length = np.min([lay.n_samples*(self.n_layers),self.pcn.max_record_history]) 
             # else:
-            self.pcn.record_skip = np.max([1,lay.n_samples//self.pcn.max_record_history])
-            history_length = np.min([lay.n_samples,self.pcn.max_record_history]) 
-            
+        
             lay.samples_history = np.empty((history_length, self.fourier.basis_number), dtype=np.complex128)
             Layers.append(lay)
+        
+        
                 
 
 
@@ -347,7 +352,15 @@ class Simulation():
                         f.create_dataset('utStd',data=value.utStd,compression='gzip')
                         continue
                     if key == 'pcn':
-                        f.create_dataset('beta',data=value.beta)
+                        f.create_dataset('beta',data=value.beta)                        
+                        f.create_dataset('record_skip',data=value.record_skip)                        
+                        f.create_dataset('record_count',data=value.record_count)                        
+                        f.create_dataset('max_record_history',data=value.max_record_history)                        
+                        f.create_dataset('target_acceptance_rate',data=value.target_acceptance_rate)                        
+                        f.create_dataset('beta_feedback_gain',data=value.beta_feedback_gain)                        
+                        f.create_dataset('Layers_sqrtBetas',data=value.Layers_sqrtBetas)                        
+                        f.create_dataset('stdev_sqrtBetas',data=value.stdev_sqrtBetas)                        
+                        f.create_dataset('sqrtBetas_history',data=value.sqrtBetas_history)                        
                         continue
                     if include_history and key == 'Layers':
                         for i in range(self.n_layers):

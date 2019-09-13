@@ -113,55 +113,65 @@ class FourierAnalysis:
 
 
 
-spec2D = [
-    ('basis_number', nb.int64),               
-    ('extended_basis_number', nb.int64),
-    ('basis_number_2D', nb.int64),
-    ('basis_number_2D_sym', nb.int64),               
-    ('extended_basis_number_2D', nb.int64),               
-    ('extended_basis_number_2D_sym', nb.int64),               
-    ('t_end', nb.float64),               
-    ('t_start', nb.float64),               
-    ('dt', nb.float64),
-    ('t', nb.float64[::1]),
-    ('Dmatrix', nb.float64[:,::1]),
-    ('Imatrix', nb.float64[:,::1]),
-    ('Index',nb.typeof(u2.createUindex(2)))
-]
+# spec2D = [
+#     ('basis_number', nb.int64),               
+#     ('extended_basis_number', nb.int64),
+#     ('basis_number_2D', nb.int64),
+#     ('basis_number_2D_sym', nb.int64),               
+#     ('extended_basis_number_2D', nb.int64),               
+#     ('extended_basis_number_2D_sym', nb.int64),               
+#     ('t_end', nb.float64),               
+#     ('t_start', nb.float64),               
+#     ('dt', nb.float64),
+#     ('t', nb.float64[::1]),
+#     ('Dmatrix', nb.float64[:,::1]),
+#     ('Imatrix', nb.float64[:,::1]),
+#     ('ix', nb.int64[:,::1]),
+#     ('iy', nb.int64[:,::1]),
+#     ('Index',nb.typeof(u2.createUindex(2)))
+# ]
 
-@nb.jitclass(spec2D)
-class FourierAnalysis_2D:
-    def __init__(self,basis_number,extended_basis_number,t_start = 0,t_end=1):
-        self.basis_number = basis_number
-        self.extended_basis_number = extended_basis_number
-        self.basis_number_2D = (2*basis_number-1)*basis_number
-        self.basis_number_2D_sym = (2*basis_number-1)*(2*basis_number-1)
-        self.extended_basis_number_2D = (2*extended_basis_number-1)*extended_basis_number
-        self.extended_basis_number_2D_sym = (2*extended_basis_number-1)*(2*extended_basis_number-1)
-        self.t_end = t_end
-        self.t_start = t_start
-        d_diag = np.zeros((2*self.basis_number-1)**2)
-        for i in range(2*self.basis_number-1):
-            for j in range(2*self.basis_number-1):
-                d_diag[i*10+j] = (i**2+j**2)
-        self.Dmatrix = -(2*np.pi)**2*np.diag(d_diag)
-        self.Imatrix = np.eye((2*self.basis_number-1)**2)
-        Index = u2.createUindex(self.basis_number)
-        self.Index = Index
+# ORDER = 'C'
+# @nb.jitclass(spec2D)
+# class FourierAnalysis_2D:
+#     def __init__(self,basis_number,extended_basis_number,t_start = 0,t_end=1):
+#         self.basis_number = basis_number
+#         self.extended_basis_number = extended_basis_number
+#         self.basis_number_2D = (2*basis_number-1)*basis_number
+#         self.basis_number_2D_sym = (2*basis_number-1)*(2*basis_number-1)
+#         self.extended_basis_number_2D = (2*extended_basis_number-1)*extended_basis_number
+#         self.extended_basis_number_2D_sym = (2*extended_basis_number-1)*(2*extended_basis_number-1)
+#         self.t_end = t_end
+#         self.t_start = t_start
+#         self.ix = np.zeros(2*self.basis_number-1,2*self.basis_number-1,dtype=np.int64)
+#         self.iy = np.zeros(2*self.basis_number-1,2*self.basis_number-1,dtype=np.int64)
+#         temp = np.arange(-(self.basis_number-1),self.basis_number)
+#         for i in range(2*self.basis_number-1)
+#             self.ix[i,:] = temp
+#             self.iy[:,i] = temp
+
+#         # d_diag = np.zeros((2*self.basis_number-1)**2)
+#         # for i in range(2*self.basis_number-1):
+#         #     for j in range(2*self.basis_number-1):
+#         #         d_diag[i*10+j] = (i**2+j**2)
+#         # self.Dmatrix = -(2*np.pi)**2*np.diag(d_diag)
+#         self.Imatrix = np.eye((2*self.basis_number-1)**2)
+#         Index = u2.createUindex(self.basis_number)
+#         self.Index = Index
     
-    def inverseFourierLimited(self,uHalf):
-        return u2.irfft2(uHalf,self.extended_basis_number)
+#     def inverseFourierLimited(self,uHalf):
+#         return u2.irfft2(uHalf,self.extended_basis_number)
 
-    def fourierTransformHalf(self,z):
-        return u2.rfft2(z,self.basis_number)
+#     def fourierTransformHalf(self,z):
+#         return u2.rfft2(z,self.basis_number)
 
-    def constructU(self,uHalf):
-        """
-        Construct Toeplitz Matrix
-        """
-        return u2.constructU(uHalf,self.Index)
+#     def constructU(self,uHalf):
+#         """
+#         Construct Toeplitz Matrix
+#         """
+#         return u2.constructU(uHalf,self.Index)
     
-    def constructMatexplicit(self,uHalf,fun):
-        temp = fun(self.inverseFourierLimited(uHalf))
-        temp2 = self.fourierTransformHalf(temp)
-        return self.constructU(temp2)
+#     def constructMatexplicit(self,uHalf,fun):
+#         temp = fun(self.inverseFourierLimited(uHalf))
+#         temp2 = self.fourierTransformHalf(temp)
+#         return self.constructU(temp2)

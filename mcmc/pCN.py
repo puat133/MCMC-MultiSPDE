@@ -35,7 +35,14 @@ spec = [
     ('target_acceptance_rate',nb.float64),
     ('beta_feedback_gain',nb.float64),
     ('variant',nb.typeof("string")),
-    ('non_centered',nb.boolean)
+    ('non_centered',nb.boolean),
+    ('pcn_step_sqrtBetas',nb.float64),
+    ('Layers_sqrtBetas',nb.float64[:]),
+    ('stdev_sqrtBetas',nb.float64[:]),
+    ('sqrtBetas_history',nb.float64[:,::1]),
+    
+    
+
 ]
 
 @nb.jitclass(spec)
@@ -64,6 +71,13 @@ class pCN():
         # self.H_dagger = temp
         temp2 = self.H.conj().T@self.H
         self.H_t_H = 0.5*(temp2+temp2.conj().T).real
+
+        self.Layers_sqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
+        self.pcn_step_sqrtBetas = 1e-1
+        self.stdev_sqrtBetas = np.ones(self.n_layers,dtype=np.float64)
+        self.sqrtBetas_history = np.empty((10000, self.n_layers), dtype=np.float64)
+        
+        
         
         
 
@@ -87,55 +101,8 @@ class pCN():
     def set_beta(self,newBeta):
         self.beta = newBeta
         self.betaZ = np.sqrt(1-newBeta**2)
+      
         
-    # def oneStep_pair(self,Layers):
-        
-    #     accepted = 0
-    #     for i in range(self.n_layers-1,0,-1):#do it from the back
-    #     # i = int(self.gibbs_step//len(Layers))
-    #         logRatio = 0.0
-    #         if i == self.n_layers-1:    
-    #             Layers[i].sample()
-    #         Layers[i-1].sample()
-    #         #Layer i
-    #         Layers[i].LMat.construct_from(Layers[i-1].new_sample)
-    #         Layers[i].new_log_L_det = np.linalg.slogdet(Layers[i].LMat.latest_computed_L)[1]
-            
-    #         Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_sym)
-    #         # assert Layers[i].current_sample_scaled_norm != np.nan
-    #         Layers[i].new_sample_scaled_norm = util.norm2(Layers[i].LMat.latest_computed_L@Layers[i].new_sample_sym)
-    #         # assert Layers[i].new_sample_scaled_norm != np.nan
-
-    #         logRatio += 0.5*(Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
-    #         logRatio += (Layers[i].new_log_L_det-Layers[i].current_log_L_det)
-            
-    #         #Layer i-1
-    #         if i-1>0:
-    #             Layers[i-1].new_sample_scaled_norm = util.norm2(Layers[i-1].LMat.current_L@Layers[i-1].new_sample_sym)
-    #         else:
-    #             Layers[i-1].new_sample_scaled_norm = util.norm2(Layers[i-1].new_sample/Layers[i-1].stdev)
-                    
-    #         logRatio += 0.5*(Layers[i-1].current_sample_scaled_norm-Layers[i-1].new_sample_scaled_norm)
-    #         if logRatio>np.log(np.random.rand()):
-    #             for i in range(self.n_layers):
-    #                 Layers[i].update_current_sample()
-    #                 if not Layers[i].is_stationary:
-    #                     Layers[i].LMat.set_current_L_to_latest()
-                    
-    #             accepted += 1
-        
-            
-    #         # for i in range(self.n_layers):
-    #         #     Layers[i].record_sample()
-    #         #  only record when needed
-    #         if (self.record_count%self.record_skip) == 0:
-    #             # print('recorded')
-    #             for i in range(self.n_layers):
-    #                 Layers[i].record_sample()
-    #         self.record_count += 1
-
-    #     return accepted
-    
     def oneStep(self,Layers):
         logRatio = 0.0
         for i in range(self.n_layers):
@@ -285,9 +252,10 @@ class pCN():
 
             # only record when needed
         #adapt sqrtBetas
-        self.one_step_for_sqrtBetas(Layers)
+        # self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
             # print('recorded')
+            self.sqrtBetas_history[self.record_count,:] = self.Layers_sqrtBetas
             for i in range(self.n_layers):
                 Layers[i].record_sample()
             
@@ -300,18 +268,19 @@ class pCN():
         return accepted
 
     def one_step_for_sqrtBetas(self,Layers):
-        pcn_step_sqrtBetas = 1e-1
-        stdev_sqrtBetas = 1
-        sqrt_beta_noises = stdev_sqrtBetas*np.random.randn(self.n_layers)
-        sqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
+        # pcn_step_sqrtBetas = 1e-1
+        # stdev_sqrtBetas = 1
+        sqrt_beta_noises = self.stdev_sqrtBetas*np.random.randn(self.n_layers)
+        # sqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
         propSqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
 
         for i in range(self.n_layers):
-            sqrtBetas[i] = Layers[i].sqrt_beta
-            temp = np.sqrt(1-pcn_step_sqrtBetas**2)*sqrtBetas[i] + pcn_step_sqrtBetas*sqrt_beta_noises[i]
+            
+            temp = np.sqrt(1-self.pcn_step_sqrtBetas**2)*Layers[i].sqrt_beta + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
             propSqrtBetas[i] = max(temp,1e-4)
             if i==0:
-                Layers[i].new_sample_sym = (propSqrtBetas[i]/sqrtBetas[i])*Layers[i].stdev_sym*Layers[i].current_noise_sample
+                stdev_sym_temp = (propSqrtBetas[i]/Layers[i].sqrt_beta)*Layers[i].stdev_sym
+                Layers[i].new_sample_sym = stdev_sym_temp*Layers[i].current_noise_sample
             else:
                 Layers[i].LMat.construct_from_with_sqrt_beta(Layers[i-1].new_sample,propSqrtBetas[i])
                 if i < self.n_layers-1:
@@ -330,8 +299,13 @@ class pCN():
 
         if logRatio>np.log(np.random.rand()):
             # print('Proposal sqrt_beta accepted!')
+            self.Layers_sqrtBetas = propSqrtBetas
             for i in range(self.n_layers):
                 Layers[i].sqrt_beta = propSqrtBetas[i]
+                Layers[i].LMat.set_current_L_to_latest()
+                if Layers[i].is_stationary:
+                    Layers[i].stdev_sym = stdev_sym_temp
+                    Layers[i].stdev = Layers[i].stdev_sym[self.fourier.basis_number-1:]
 
         
 
@@ -406,15 +380,51 @@ class pCN():
     #         Layers[i].record_sample()
 
     #     return accepted
-
-
-
-
-
-        
-        
-
-
-        
-
     
+    # def oneStep_pair(self,Layers):
+        
+    #     accepted = 0
+    #     for i in range(self.n_layers-1,0,-1):#do it from the back
+    #     # i = int(self.gibbs_step//len(Layers))
+    #         logRatio = 0.0
+    #         if i == self.n_layers-1:    
+    #             Layers[i].sample()
+    #         Layers[i-1].sample()
+    #         #Layer i
+    #         Layers[i].LMat.construct_from(Layers[i-1].new_sample)
+    #         Layers[i].new_log_L_det = np.linalg.slogdet(Layers[i].LMat.latest_computed_L)[1]
+            
+    #         Layers[i].current_sample_scaled_norm = util.norm2(Layers[i].LMat.current_L@Layers[i].new_sample_sym)
+    #         # assert Layers[i].current_sample_scaled_norm != np.nan
+    #         Layers[i].new_sample_scaled_norm = util.norm2(Layers[i].LMat.latest_computed_L@Layers[i].new_sample_sym)
+    #         # assert Layers[i].new_sample_scaled_norm != np.nan
+
+    #         logRatio += 0.5*(Layers[i].current_sample_scaled_norm-Layers[i].new_sample_scaled_norm)
+    #         logRatio += (Layers[i].new_log_L_det-Layers[i].current_log_L_det)
+            
+    #         #Layer i-1
+    #         if i-1>0:
+    #             Layers[i-1].new_sample_scaled_norm = util.norm2(Layers[i-1].LMat.current_L@Layers[i-1].new_sample_sym)
+    #         else:
+    #             Layers[i-1].new_sample_scaled_norm = util.norm2(Layers[i-1].new_sample/Layers[i-1].stdev)
+                    
+    #         logRatio += 0.5*(Layers[i-1].current_sample_scaled_norm-Layers[i-1].new_sample_scaled_norm)
+    #         if logRatio>np.log(np.random.rand()):
+    #             for i in range(self.n_layers):
+    #                 Layers[i].update_current_sample()
+    #                 if not Layers[i].is_stationary:
+    #                     Layers[i].LMat.set_current_L_to_latest()
+                    
+    #             accepted += 1
+        
+            
+    #         # for i in range(self.n_layers):
+    #         #     Layers[i].record_sample()
+    #         #  only record when needed
+    #         if (self.record_count%self.record_skip) == 0:
+    #             # print('recorded')
+    #             for i in range(self.n_layers):
+    #                 Layers[i].record_sample()
+    #         self.record_count += 1
+
+    #     return accepted

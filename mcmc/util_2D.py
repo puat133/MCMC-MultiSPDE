@@ -8,7 +8,7 @@ import numba as nb
 import time
 import math
 FASTMATH=True
-PARALLEL = False
+PARALLEL = True
 CACHE=True
 # from numba import complex64, complex128, float32, float64, int32, jit, njit, prange
 SQRT2 = np.sqrt(2)
@@ -44,10 +44,19 @@ def construct_w_2D_ravelled(n):
     return np.concatenate((uHalf[:0:-1].conj(),uHalf))
 
 @njitParallel
-def symmetrize_2D(uHalf):
-    uHalfW=uHalf[:,1:]
+def symmetrize_2D(uHalf2D):
+    uHalfW=uHalf2D[:,1:]
     uHalf2Dc = uHalfW[::-1,:][:,::-1].conj()
-    return np.hstack((uHalf2Dc,uHalf))
+    return np.hstack((uHalf2Dc,uHalf2D))
+
+@njitParallel
+def from_u_2D_ravel_to_u_2D(u,n):
+    return u.reshape(2*n-1,2*n-1)
+
+@njitParallel
+def from_u_2D_ravel_to_uHalf_2D(u,n):
+    return u.reshape(2*n-1,2*n-1)[:,:n-1]
+
 
 
 @njitParallel
@@ -70,18 +79,18 @@ def extend2D(uIn,num):
             return uIn
 
 @njitParallel
-def kappa_pow_min_nu(ut):
+def kappa_pow_min_nu(u):
     """
     for d=2, and alpha =2 nu = 1
     """
-    return 1/util.kappaFun(ut)
+    return 1/util.kappaFun(u)
 
 @njitParallel
-def kappa_pow_d_per_2(ut):
+def kappa_pow_d_per_2(u):
     """
     for d=2, and d/2 = 1
     """
-    return util.kappaFun(ut)
+    return util.kappaFun(u)
     
 @njitParallel
 def rfft2(z,n):
@@ -91,7 +100,7 @@ def rfft2(z,n):
     return zrfft[m//2 -(n-1):m//2 +n,:n]
     
 @njitParallel
-def irfft2(uHalf,num):
+def irfft2(uHalf2D,num):
     """
     Fourier transform of one dimensional signal
     ut   = 1D signal 
@@ -99,7 +108,7 @@ def irfft2(uHalf,num):
     dt   = timestep
     (now using cp.fft.fft) in the implementation
     """
-    uHalfExtended = extend2D(uHalf,num)
+    uHalfExtended = extend2D(uHalf2D,num)
 
     with nb.objmode(uh='float64[:,:]'):
         # uh = np.fft.ifftshift(uHalfExtended,axes=0)
@@ -109,24 +118,24 @@ def irfft2(uHalf,num):
     return uh
 
 @njitParallel
-def constructU(uHalf,index):
-    n = uHalf.shape[1]
+def constructU(uHalf2D,index):
+    n = uHalf2D.shape[1]
     with nb.objmode(res='complex128[:,:]'):
-        res = extend2D(symmetrize_2D(uHalf),2*n-1)[index]
+        res = extend2D(symmetrize_2D(uHalf2D),2*n-1)[index]
     return res
 
     
 @njitParallel
-def constructMatexplicit(uHalf,fun,num,index):
-    temp = fun(irfft2(uHalf,num))
-    temp2 = rfft2(temp,uHalf.shape[1])
+def constructMatexplicit(uHalf2D,fun,num,index):
+    temp = fun(irfft2(uHalf2D,num))
+    temp2 = rfft2(temp,uHalf2D.shape[1])
     return constructU(temp2,index)
 
 @njitParallel
-def constructLexplicit(uHalf,D,num,sqrtBeta,index):
-    Ku_pow_min_nu = constructMatexplicit(uHalf,kappa_pow_min_nu,num,index)
-    Ku_pow_half = constructMatexplicit(uHalf,kappa_pow_d_per_2,num,index)
-    L = (util.matMulti(Ku_pow_min_nu,D) - Ku_pow_half)/sqrtBeta
+def constructLexplicit(uHalf2D,D,num,sqrtBeta,index):
+    Ku_pow_min_nu = constructMatexplicit(uHalf2D,kappa_pow_min_nu,num,index)
+    Ku_pow_d_per_2 = constructMatexplicit(uHalf2D,kappa_pow_d_per_2,num,index)
+    L = (util.matMulti(Ku_pow_min_nu,D) - Ku_pow_d_per_2)/sqrtBeta
     return L
 
 @njitParallel
@@ -165,9 +174,12 @@ def constructH(tx,ty,ix,iy):
     (iX,iY) are meshgrid, but ravelled
     (tx,ty) also ravelled meshgrid
     """
+    # H = np.empty((ix.shape[0],tx.shape[0]),dtype=np.complex128)
+    # for i in nb.prange(ix.shape[0]):
+    #     H[i,:] = eigenFunction2D(tx,ty,ix[i],iy[i])
     H = np.empty((tx.shape[0],ix.shape[0]),dtype=np.complex128)
-    for i in nb.prange(ix.shape[0]):
-        H[:,i] = eigenFunction2D(tx,ty,ix[i],iy[i])
+    for i in nb.prange(tx.shape[0]):
+        H[i,:] = eigenFunction2D(tx[i],ty[i],ix,iy)
     return H
 
 @njitParallel

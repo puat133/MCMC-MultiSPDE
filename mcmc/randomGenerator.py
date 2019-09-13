@@ -36,34 +36,34 @@ class RandomGenerator:
         # w = np.zeros(2*w_half.shape[0]-1,dtype=np.complex128)
         return w
 
-spec2D = [
-    # ('fourier',fourier_type),
-    ('basis_number',nb.int64),
-    ('sqrt2',nb.float64)
-]
+# spec2D = [
+#     # ('fourier',fourier_type),
+#     ('basis_number',nb.int64),
+#     ('sqrt2',nb.float64)
+# ]
 
-@nb.jitclass(spec2D)
-class RandomGenerator_2D:
-    def __init__(self,basis_number):
-        # self.fourier = fourier
-        self.basis_number = basis_number
-        self.sqrt2 = np.sqrt(2)
+# @nb.jitclass(spec2D)
+# class RandomGenerator_2D:
+#     def __init__(self,basis_number):
+#         # self.fourier = fourier
+#         self.basis_number = basis_number
+#         self.sqrt2 = np.sqrt(2)
 
-    def construct_w_Half_2D(self):
-        return u2.construct_w_Half_2D(self.basis_number)
+#     def construct_w_Half_2D(self):
+#         return u2.construct_w_Half_2D(self.basis_number)
 
     
-    def construct_w_Half_2D_ravelled(self):
-        return u2.construct_w_Half_2D_ravelled(self.basis_number)
+#     def construct_w_Half_2D_ravelled(self):
+#         return u2.construct_w_Half_2D_ravelled(self.basis_number)
 
-    def fromUHalfToUHalf2D(self,uHalf):
-        return u2.fromUHalfToUHalf2D(uHalf,self.basis_number)
+#     def fromUHalfToUHalf2D(self,uHalf):
+#         return u2.fromUHalfToUHalf2D(uHalf,self.basis_number)
 
-    def fromUHalf2DToUHalf(self,uHalf2D):
-        return u2.fromUHalf2DToUHalf(uHalf2D,self.basis_number)
+#     def fromUHalf2DToUHalf(self,uHalf2D):
+#         return u2.fromUHalf2DToUHalf(uHalf2D,self.basis_number)
 
-    def construct_w_2D_ravelled(self):
-        return u2.construct_w_2D_ravelled(self.basis_number)
+#     def construct_w_2D_ravelled(self):
+#         return u2.construct_w_2D_ravelled(self.basis_number)
 
-    def symmetrize_2D(self,uHalf2D):
-        return u2.symmetrize_2D(uHalf2D)
+#     def symmetrize_2D(self,uHalf2D):
+#         return u2.symmetrize_2D(uHalf2D)
