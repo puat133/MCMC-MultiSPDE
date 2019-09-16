@@ -19,13 +19,13 @@ jitParallel = nb.jit(fastmath=FASTMATH,cache=CACHE,parallel=PARALLEL)
 
 @njitParallel
 def construct_w_Half_2D(n):
-    wHalf = util.construct_w_Half(2*n**2-2*n+1)
+    wHalf = util.construct_w_Half(2*n*n-2*n+1)
     return fromUHalfToUHalf2D(wHalf,n)/SQRT2
 
   
 @njitParallel
 def construct_w_Half_2D_ravelled(n):
-    wHalf = util.construct_w_Half(2*n**2-2*n+1)
+    wHalf = util.construct_w_Half(2*n*n-2*n+1)
     return wHalf/SQRT2
 
 @njitParallel
@@ -55,7 +55,7 @@ def from_u_2D_ravel_to_u_2D(u,n):
 
 @njitParallel
 def from_u_2D_ravel_to_uHalf_2D(u,n):
-    return u.reshape(2*n-1,2*n-1)[:,:n-1]
+    return u.reshape(2*n-1,2*n-1)[:,n-1:]
 
 
 
