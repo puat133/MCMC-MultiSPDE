@@ -252,7 +252,7 @@ class pCN():
 
             # only record when needed
         #adapt sqrtBetas
-        # self.one_step_for_sqrtBetas(Layers)
+        self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
             # print('recorded')
             self.sqrtBetas_history[self.record_count,:] = self.Layers_sqrtBetas
