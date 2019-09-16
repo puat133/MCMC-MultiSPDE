@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#SBATCH --time=01:00:00
+#SBATCH --gres=gpu:teslak80:1
+
+module load cuda/10.0.130
+conda init bash
+conda activate CUPY
+python cupy_test.py
+
+ 
