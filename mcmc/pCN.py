@@ -276,8 +276,9 @@ class pCN():
 
         for i in range(self.n_layers):
             
-            temp = np.sqrt(1-self.pcn_step_sqrtBetas**2)*Layers[i].sqrt_beta + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
-            propSqrtBetas[i] = max(temp,1e-4)
+            # temp = np.sqrt(1-self.pcn_step_sqrtBetas**2)*Layers[i].sqrt_beta + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
+            temp = np.sqrt(1-self.pcn_step_sqrtBetas**2)*np.log(Layers[i].sqrt_beta) + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
+            propSqrtBetas[i] = np.exp(temp)
             if i==0:
                 stdev_sym_temp = (propSqrtBetas[i]/Layers[i].sqrt_beta)*Layers[i].stdev_sym
                 Layers[i].new_sample_sym = stdev_sym_temp*Layers[i].current_noise_sample
