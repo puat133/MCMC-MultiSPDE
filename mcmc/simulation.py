@@ -170,6 +170,7 @@ class Simulation():
     def run(self):
         
         self.accepted_count = 0
+        self.accepted_count_SqrtBeta = 0
         average_time_intv =0.0
         with nb.objmode(start_time='float64',start_time_intv='float64'):
             if self.printProgress:
@@ -181,12 +182,17 @@ class Simulation():
 
         # totalTime = 0.0
         accepted_count_partial = 0
+        accepted_count_partial_SqrtBeta = 0
         linalg_error_occured = False
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
                 if self.pcn_variant == "dunlop":
-                    accepted_count_partial += self.pcn.one_step_non_centered_dunlop(self.Layers)
+                    accepted_count_partial += self.pcn.one_step_non_centered_dunlop(self.Layers) 
+                    # accepted,accepted_SqrtBeta = self.pcn.one_step_non_centered_dunlop(self.Layers)
+                    # accepted_count_partial += accepted
+                    # accepted_count_partial_SqrtBeta += accepted_SqrtBeta
                 elif self.pcn_variant == "sari":
+                    # accepted,acceptedSqrtBeta =self.pcn.one_step_non_centered_sari(self.Layers) 
                     accepted_count_partial += self.pcn.one_step_non_centered_sari(self.Layers) 
                 else:
                     accepted_count_partial += self.pcn.oneStep(self.Layers)
@@ -199,14 +205,17 @@ class Simulation():
                     # accepted_count_partial += self.pcn.one_step_one_element(self.Layers,j)
                 if (i+1)%(self.evaluation_interval) == 0:
                     self.accepted_count += accepted_count_partial
+                    # self.accepted_count_SqrtBeta += accepted_count_partial_SqrtBeta
 
                     # if self.pcn_variant:
                     #     self.acceptancePercentage = self.accepted_count/((i+1)*(self.n_layers))                    
                     # else:
                     self.acceptancePercentage = self.accepted_count/(i+1)
+                    # self.acceptancePercentage_SqrtBeta = self.accepted_count_SqrtBeta/(i+1)
                         
                     if self.enable_beta_feedback:
-                        self.pcn.adapt_beta(self.acceptancePercentage)
+                        self.pcn.adapt_step(self.acceptancePercentage)
+                        # self.pcn.adapt_step_sqrtBeta(self.acceptancePercentage_SqrtBeta)
                     # else:
                     #     if self.acceptancePercentage> 0.5:
                     #         self.pcn.more_aggresive()

@@ -37,6 +37,7 @@ spec = [
     ('variant',nb.typeof("string")),
     ('non_centered',nb.boolean),
     ('pcn_step_sqrtBetas',nb.float64),
+    ('pcn_step_sqrtBetas_Z',nb.float64),
     ('Layers_sqrtBetas',nb.float64[:]),
     ('stdev_sqrtBetas',nb.float64[:]),
     ('sqrtBetas_history',nb.float64[:,::1]),
@@ -73,7 +74,8 @@ class pCN():
         self.H_t_H = 0.5*(temp2+temp2.conj().T).real
 
         self.Layers_sqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
-        self.pcn_step_sqrtBetas = 1e-1
+        self.pcn_step_sqrtBetas = 5e-1
+        self.pcn_step_sqrtBetas_Z = np.sqrt(1-self.pcn_step_sqrtBetas)
         self.stdev_sqrtBetas = np.ones(self.n_layers,dtype=np.float64)
         self.sqrtBetas_history = np.empty((10000, self.n_layers), dtype=np.float64)
         
@@ -88,19 +90,27 @@ class pCN():
       
         
     #     return logRatio
-    def adapt_beta(self,current_acceptance_rate):
+    def adapt_step(self,current_acceptance_rate):
         #based on Algorithm 2 of: Computational Methods for Bayesian Inference in Complex Systems: Thesis
-        self.set_beta(self.beta*np.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
+        self.set_step(self.beta*np.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
 
     def more_aggresive(self):
-        self.set_beta(np.min(np.array([(1+self.aggresiveness)*self.beta,1],dtype=np.float64)))
+        self.set_step(np.min(np.array([(1+self.aggresiveness)*self.beta,1],dtype=np.float64)))
     
     def less_aggresive(self):
-        self.set_beta(np.min(np.array([(1-self.aggresiveness)*self.beta,1e-10],dtype=np.float64)))
+        self.set_step(np.min(np.array([(1-self.aggresiveness)*self.beta,1e-10],dtype=np.float64)))
 
-    def set_beta(self,newBeta):
-        self.beta = newBeta
-        self.betaZ = np.sqrt(1-newBeta**2)
+    def set_step(self,newStep):
+        self.beta = newStep
+        self.betaZ = np.sqrt(1-newStep**2)
+
+    def set_step_sqrtBeta(self,newStep):
+        self.pcn_step_sqrtBetas = newStep
+        self.pcn_step_sqrtBetas_Z = np.sqrt(1-self.pcn_step_sqrtBetas**2)
+    
+    def adapt_step_sqrtBeta(self,current_acceptance_rate):
+        #based on Algorithm 2 of: Computational Methods for Bayesian Inference in Complex Systems: Thesis
+        self.set_step_sqrtBeta(self.pcn_step_sqrtBetas*np.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
       
         
     def oneStep(self,Layers):
@@ -252,7 +262,7 @@ class pCN():
 
             # only record when needed
         #adapt sqrtBetas
-        self.one_step_for_sqrtBetas(Layers)
+        # accepted_SqrtBeta = self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
             # print('recorded')
             self.sqrtBetas_history[self.record_count,:] = self.Layers_sqrtBetas
@@ -265,11 +275,11 @@ class pCN():
 
         
 
+        # return accepted,accepted_SqrtBeta
         return accepted
 
     def one_step_for_sqrtBetas(self,Layers):
-        # pcn_step_sqrtBetas = 1e-1
-        # stdev_sqrtBetas = 1
+        accepted_SqrtBeta = 0
         sqrt_beta_noises = self.stdev_sqrtBetas*np.random.randn(self.n_layers)
         # sqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
         propSqrtBetas = np.zeros(self.n_layers,dtype=np.float64)
@@ -277,7 +287,7 @@ class pCN():
         for i in range(self.n_layers):
             
             # temp = np.sqrt(1-self.pcn_step_sqrtBetas**2)*Layers[i].sqrt_beta + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
-            temp = np.sqrt(1-self.pcn_step_sqrtBetas**2)*np.log(Layers[i].sqrt_beta) + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
+            temp = self.pcn_step_sqrtBetas_Z*np.log(Layers[i].sqrt_beta) + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
             propSqrtBetas[i] = np.exp(temp)
             if i==0:
                 stdev_sym_temp = (propSqrtBetas[i]/Layers[i].sqrt_beta)*Layers[i].stdev_sym
@@ -293,12 +303,14 @@ class pCN():
                     LBar = np.vstack((self.H,Layers[-1].LMat.latest_computed_L))
                     v, res, rnk, s = np.linalg.lstsq(LBar,self.yBar-wBar )
                     Layers[-1].new_sample_sym = v
-                    Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number-1:]
+            
+            Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number-1:]
 
         logRatio = 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].current_sample_sym))
         logRatio -= 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].new_sample_sym))
 
         if logRatio>np.log(np.random.rand()):
+            acceptedBeta = 1
             # print('Proposal sqrt_beta accepted!')
             self.Layers_sqrtBetas = propSqrtBetas
             for i in range(self.n_layers):
@@ -308,7 +320,7 @@ class pCN():
                     Layers[i].stdev_sym = stdev_sym_temp
                     Layers[i].stdev = Layers[i].stdev_sym[self.fourier.basis_number-1:]
 
-        
+        return accepted_SqrtBeta
 
     # def one_step_non_centered_new(self,Layers):
     #     accepted = 0
