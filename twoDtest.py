@@ -8,6 +8,8 @@ import scipy.special as ssp
 import mcmc.util_cupy as util
 import cupy as cp
 import importlib
+import datetime
+import pathlib,os
 importlib.reload(im)
 importlib.reload(util)
 #%%
@@ -38,7 +40,7 @@ measurement = im.TwoDMeasurement('shepp.png',target_size=f.extended_basis_number
 #%%
 pcn = im.pCN(n_layers,rg,measurement,f,1,'dunlop')
 #%%
-n_samples = 20
+n_samples = 100
 pcn.record_skip = 1#np.max([1, n_samples// pcn.max_record_history])
 history_length = n_samples#np.min([ n_samples, pcn.max_record_history]) 
 #%%
@@ -99,6 +101,18 @@ for i in range(n_samples):
         pcn.adapt_beta(acceptancePercentage)
 
 #%%
+
+folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
+if 'WRKDIR' in os.environ:
+    simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
+elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
+    simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
+else:
+    simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+simResultPath.mkdir()
+
+
+#%%
 mean_field = util.symmetrize(cp.asarray(np.mean(Layers[-1].samples_history[:n_samples,:],axis=0)))
 u_mean_field = util.symmetrize(cp.asarray(np.mean(Layers[0].samples_history[:n_samples,:],axis=0)))
 vF = mean_field.reshape(2*f.basis_number-1,2*f.basis_number-1,order=im.ORDER).T
@@ -112,6 +126,8 @@ ax[0,0].imshow(vFn.real,cmap=plt.cm.Greys_r)
 ax[0,1].imshow(vForiginaln.real,cmap=plt.cm.Greys_r)
 ax[1,0].imshow(vFn.imag,cmap=plt.cm.Greys_r)
 ax[1,1].imshow(vForiginaln.imag,cmap=plt.cm.Greys_r)
+
+fig.savefig(str(simResultPath/'FourierDomain.pdf'), bbox_inches='tight')
 #%%
 reconstructed_image = f.inverseFourierLimited(vF[:,f.basis_number-1:])
 reconstructed_image_length_scale = f.inverseFourierLimited(uF[:,f.basis_number-1:])
@@ -124,9 +140,11 @@ fig, ax = plt.subplots(nrows=3,figsize=(20,20))
 ax[0].imshow(ri_n,cmap=plt.cm.Greys_r)
 ax[1].imshow(ri_or_n,cmap=plt.cm.Greys_r)
 ax[2].imshow(ri_ls_n,cmap=plt.cm.Greys_r)
+fig.savefig(str(simResultPath/'Reconstructed.pdf'), bbox_inches='tight')
+#%%
+
+# plt.show()
+
+
 
 #%%
-plt.figure()
-plt.imshow(ri_n-cp.asnumpy(measurement.target_image),cmap=plt.cm.Greys_r)
-plt.show()
-
