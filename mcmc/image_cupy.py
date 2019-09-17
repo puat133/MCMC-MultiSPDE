@@ -147,8 +147,8 @@ class TwoDMeasurement:
                             order=1, mode='symmetric')
         self.target_image = cp.asarray(self.target_image,dtype=cp.float32)
         self.corrupted_image = self.target_image + self.stdev*cp.random.randn(self.target_image.shape[0],self.target_image.shape[1],dtype=cp.float32)
-        self.v = self.target_image.ravel(ORDER)
-        self.y = self.corrupted_image.ravel(ORDER)
+        self.v = self.target_image.ravel(ORDER)/self.stdev
+        self.y = self.corrupted_image.ravel(ORDER)/self.stdev
         self.num_sample = self.y.size
         temp = cp.linspace(0.,1.,num=self.dim,endpoint=True)
         ty,tx = cp.meshgrid(temp,temp)
@@ -157,7 +157,7 @@ class TwoDMeasurement:
 
     def get_measurement_matrix(self,ix,iy):
         H = util.constructH(self.tx,self.ty,ix.ravel(ORDER),iy.ravel(ORDER))
-        return H
+        return H/self.stdev
         
         
 
@@ -187,7 +187,7 @@ class pCN():
             self.H_t_H = cp.load(self.measurement_matrix_file)['H_t_H']
 
         self.I = cp.eye(self.measurement.num_sample)
-        self.y = self.measurement.y/self.measurement.stdev
+        self.y = self.measurement.y
         self.yBar = cp.concatenate((self.y,cp.zeros(2*self.fourier.basis_number_2D_ravel-1)))
         
     
@@ -196,7 +196,9 @@ class pCN():
         self.beta_feedback_gain = 2.1
         self.record_skip = 1
         self.record_count = 0
-        self.max_record_history = 10000      
+        self.max_record_history = 10000
+
+        self.Layers_sqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)      
 
     def adapt_beta(self,current_acceptance_rate):
         self.set_beta(self.beta*cp.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
@@ -226,18 +228,18 @@ class pCN():
         # y = self.measurement.yt
         L = Layers[-1].LMat.current_L
         temp = L.conj().T@L
-        r = 0.5*(temp+temp.conj().T) + self.H_t_H
+        r = 0.5*(temp+temp.conj().T).real + self.H_t_H
         c = cp.linalg.cholesky(r)
-        Ht = cp.linalg.solve(c,self.H.conj().T)
+        Ht = cp.linalg.solve(c.astype(cp.complex64),self.H.conj().T)
         
         R_inv = self.I - (Ht.conj().T@Ht).real
         logRatio = 0.5*(self.y@R_inv@self.y - cp.linalg.slogdet(R_inv/meas_var)[1])
 
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
         temp = L.conj().T@L
-        r = 0.5*(temp+temp.conj().T) + self.H_t_H
+        r = 0.5*(temp+temp.conj().T).real + self.H_t_H
         c = cp.linalg.cholesky(r)
-        Ht = cp.linalg.solve(c,self.H.conj().T)
+        Ht = cp.linalg.solve(c.astype(cp.complex64),self.H.conj().T)
         
         R_inv = self.I - (Ht.conj().T@Ht).real
         logRatio -= 0.5*(self.y@R_inv@self.y - cp.linalg.slogdet(R_inv/meas_var)[1])
@@ -260,7 +262,7 @@ class pCN():
 
         # self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
-            self.sqrtBetas_history[self.record_count,:] = self.Layers_sqrtBetas
+            # self.sqrtBetas_history[self.record_count,:] = self.Layers_sqrtBetas
             for i in range(self.n_layers):
                 Layers[i].record_sample()
 
@@ -310,7 +312,7 @@ Sample in this Layer object is always one complex dimensional vector
 It is the job of Fourier object to convert it to 2D object
 """
 class Layer():
-    def __init__(self,is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample):
+    def __init__(self,is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample_sym):
         self.is_stationary = is_stationary
         self.sqrt_beta = sqrt_beta
         self.order_number = order_number
@@ -330,18 +332,19 @@ class Layer():
         
         
         if self.is_stationary:
+            self.new_sample_sym = init_sample_sym 
+            self.new_sample = init_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
+            self.current_sample = self.new_sample.copy()
+            self.current_sample_sym = self.new_sample_sym.copy()
             
-            self.current_sample = init_sample
-            self.new_sample = init_sample
-            self.new_sample_sym = self.pcn.random_gen.symmetrize(self.new_sample)
             self.new_sample_scaled_norm = 0
             self.new_log_L_det = 0
             #numba need this initialization. otherwise it will not compile
-            self.current_sample = init_sample.copy()
             self.current_sample_scaled_norm = 0
             self.current_log_L_det = 0
 
         else:
+            init_sample = init_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
             self.LMat.construct_from(init_sample)
             self.LMat.set_current_L_to_latest()
             self.new_sample_sym = cp.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
