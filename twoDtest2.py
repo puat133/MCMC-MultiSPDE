@@ -122,11 +122,10 @@ if __name__=='__main__':
     if not simResultPath.exists():
         simResultPath.mkdir()
     sim.run()
-    sim.analyze()
     sim.save(str(simResultPath/'result.hdf5'))
     #%%
-    mean_field = util.symmetrize(cp.asarray(np.mean(sim.Layers[-1].samples_history[:n_samples,:],axis=0)))
-    u_mean_field = util.symmetrize(cp.asarray(np.mean(sim.Layers[0].samples_history[:n_samples,:],axis=0)))
+    mean_field = util.symmetrize(cp.asarray(np.mean(sim.Layers[-1].samples_history,axis=0)))
+    u_mean_field = util.symmetrize(cp.asarray(np.mean(sim.Layers[0].samples_history,axis=0)))
     vF = mean_field.reshape(2*sim.fourier.basis_number-1,2*sim.fourier.basis_number-1,order=im.ORDER).T
     uF = u_mean_field.reshape(2*sim.fourier.basis_number-1,2*sim.fourier.basis_number-1,order=im.ORDER).T
     vForiginal = util.symmetrize_2D(sim.fourier.fourierTransformHalf(sim.measurement.target_image))
