@@ -10,6 +10,8 @@ import cupy as cp
 import importlib
 import datetime
 import pathlib,os
+import argparse
+import parser_help as ph
 importlib.reload(im)
 importlib.reload(util)
 #%%
@@ -106,10 +108,8 @@ if __name__=='__main__':
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
 
     args = parser.parse_args()
-    im.Simulation(n_layers,n_samples,n,n_extended,step,kappa,sigma_u,sigma_v,simga_scalling,stdev,evaluation_interval,printProgress,
-                    seed,burn_percentage,enable_beta_feedback,pcn_variant)
-    sim = im.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,n_extended = args.num,beta = args.beta,
-                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
+    sim = im.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,n_extended = args.n_extended,beta = args.beta,
+                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,meas_std=0.1,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
                     seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant)
     
     folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
