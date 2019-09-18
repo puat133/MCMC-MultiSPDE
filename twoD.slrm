@@ -1,11 +1,7 @@
 #!/bin/bash
 #SBATCH --time=5-0 #time-requested
-#SBATCH --gres=gpu:4 --constraint=Volta
+#SBATCH --gres=gpu
+conda init bash
+conda activate CUPYrc
 
-
-module avail cuda
-module load cuda/10.0.130
-module load anaconda3
-conda activate CUPY
-
-python twoDtest.py
+python twoDtest2.py

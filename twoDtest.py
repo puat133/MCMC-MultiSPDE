@@ -44,6 +44,16 @@ n_samples = 100
 pcn.record_skip = 1#np.max([1, n_samples// pcn.max_record_history])
 history_length = n_samples#np.min([ n_samples, pcn.max_record_history]) 
 #%%
+
+folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
+if 'WRKDIR' in os.environ:
+    simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
+elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
+    simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
+else:
+    simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+simResultPath.mkdir()
+#%%
 # v,_,_,_ = cp.linalg.lstsq(pcn.H,pcn.y)
 # vF = v.reshape(2*f.basis_number-1,2*f.basis_number-1,order=im.ORDER).T
 # vForiginal = util.symmetrize_2D(f.fourierTransformHalf(measurement.target_image))
@@ -62,6 +72,7 @@ history_length = n_samples#np.min([ n_samples, pcn.max_record_history])
 # fig, ax = plt.subplots(ncols=2,figsize=(20,20))
 # ax[0].imshow(ri_n,cmap=plt.cm.Greys_r)
 # ax[1].imshow(ri_or_n,cmap=plt.cm.Greys_r)
+# fig.savefig(str(simResultPath/'test.pdf'), bbox_inches='tight')
 #%%
 temp = cp.linalg.solve(Lu,rg.construct_w())
 Layers  = []
@@ -100,16 +111,7 @@ for i in range(n_samples):
         acceptancePercentage = accepted_count/(i+1)
         pcn.adapt_beta(acceptancePercentage)
 
-#%%
 
-folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
-if 'WRKDIR' in os.environ:
-    simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
-elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
-    simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
-else:
-    simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
-simResultPath.mkdir()
 
 
 #%%
@@ -145,7 +147,7 @@ ax[1].imshow(ri_or_n,cmap=plt.cm.Greys_r)
 ax[2].imshow(ri_wn_n,cmap=plt.cm.Greys_r)
 ax[3].imshow(ri_ls_n,cmap=plt.cm.Greys_r)
 fig.savefig(str(simResultPath/'Reconstructed.pdf'), bbox_inches='tight')
-#%%
+# %%
 
 # plt.show()
 
