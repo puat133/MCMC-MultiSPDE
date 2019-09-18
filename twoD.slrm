@@ -4,4 +4,4 @@
 conda init bash
 conda activate CUPYrc
 
-python twoDtest2.py
+python twoDtest2.py --n-samples=100 --n=16 --n-extended=64

@@ -443,7 +443,7 @@ class Simulation():
         uStdev[0] /= 2 #scaled
 
         
-        self.measurement = TwoDMeasurement('shepp.png',target_size=2*f.extended_basis_number,stdev=meas_std,relative_location='phantom_images')
+        self.measurement = TwoDMeasurement('shepp.png',target_size=f.extended_basis_number,stdev=meas_std,relative_location='phantom_images')
         self.pcn_variant = pcn_variant
         self.pcn = pCN(n_layers,rg,self.measurement,f,beta,self.pcn_variant)
         # self.pcn_pair_layers = pcn_pair_layers

@@ -69,8 +69,8 @@ def kappaFun(ut):
     # for i in nb.prange(ut.shape[0]):
     #     res[i] = math.exp(-ut[i])
     # return res
-    xp = cp.get_array_module(ut)
-    return xp.exp(-ut)
+    # xp = cp.get_array_module(ut)
+    return cp.exp(-ut)
 
 
 
@@ -102,8 +102,8 @@ def norm2(u):
     """
     Compute euclidean squared norm 2 of a complex vector
     """
-    xp = cp.get_array_module(u)
-    return xp.linalg.norm(u)**2
+    # xp = cp.get_array_module(u)
+    return cp.linalg.norm(u)**2
 
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -157,10 +157,10 @@ def finalizeWelford(existingAggregate):
 
 
 def extend(uSymmetric,num):
-    xp = cp.get_array_module(uSymmetric) 
+    # xp = cp.get_array_module(uSymmetric) 
     n = (uSymmetric.shape[0]+1)//2
     if num> n:
-        z = xp.zeros(2*num-1,dtype=xp.complex64)
+        z = cp.zeros(2*num-1,dtype=cp.complex64)
         z[(num-1)-(n-1):(num-1)+n] = uSymmetric
         return z    
     else: 
@@ -168,8 +168,8 @@ def extend(uSymmetric,num):
 
 
 def symmetrize(w_half):
-    xp = cp.get_array_module(w_half)
-    w = xp.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
+    # xp = cp.get_array_module(w_half)
+    w = cp.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
     return w
 
 
@@ -201,10 +201,10 @@ def construct_w_2D_ravelled(n):
 
 
 def symmetrize_2D(uHalf2D):
-    xp = cp.get_array_module(uHalf2D)
+    # xp = cp.get_array_module(uHalf2D)
     uHalfW=uHalf2D[:,1:]
     uHalf2Dc = uHalfW[::-1,:][:,::-1].conj()
-    return xp.hstack((uHalf2Dc,uHalf2D))
+    return cp.hstack((uHalf2Dc,uHalf2D))
 
 
 # def from_u_2D_ravel_to_u_2D(u,n):
@@ -251,9 +251,9 @@ def kappa_pow_d_per_2(u):
     
 
 def rfft2(z,n):
-    xp = cp.get_array_module(z)
+    # xp = cp.get_array_module(z)
     m = z.shape[0]
-    zrfft = xp.fft.fftshift(xp.fft.rfft2(z,norm="ortho"),axes=0)
+    zrfft = cp.fft.fftshift(cp.fft.rfft2(z,norm="ortho"),axes=0)
     return zrfft[m//2 -(n-1):m//2 +n,:n]
     
 
@@ -265,12 +265,12 @@ def irfft2(uHalf2D,num):
     dt   = timestep
     (now using cp.fft.fft) in the implementation
     """
-    xp = cp.get_array_module(uHalf2D)
+    # xp = cp.get_array_module(uHalf2D)
     uHalfExtended = extend2D(uHalf2D,num)
 
    
-    uh = xp.fft.ifftshift(uHalfExtended,axes=0)
-    uh = xp.fft.irfft2(uh,s=(2*num-1,2*num-1),norm="ortho")
+    uh = cp.fft.ifftshift(uHalfExtended,axes=0)
+    uh = cp.fft.irfft2(uh,s=(2*num-1,2*num-1),norm="ortho")
     # return cp.fft.irfft2(uh,s=(num,num))
     return uh
 
