@@ -14,6 +14,7 @@ import cupy as cp
 import time
 import math
 import mcmc.image_cupy as im
+import h5py
 SQRT2 = cp.float32(1.41421356)
 PI = cp.float32(cp.pi)
 
@@ -338,66 +339,37 @@ def constructH(tx,ty,ix,iy):
         H[i,:] = eigenFunction2D(tx[-i],ty[-i],ix,iy)
     return H
 
-# def lstsq(a, b, rcond=1e-15):
-#     """Return the least-squares solution to a linear matrix equation.
-#      Solves the equation `a x = b` by computing a vector `x` that
-#     minimizes the Euclidean 2-norm `|| b - a x ||^2`.  The equation may
-#     be under-, well-, or over- determined (i.e., the number of
-#     linearly independent rows of `a` can be less than, equal to, or
-#     greater than its number of linearly independent columns).  If `a`
-#     is square and of full rank, then `x` (but for round-off error) is
-#     the "exact" solution of the equation.
-#      Args:
-#         a (cupy.ndarray): "Coefficient" matrix with dimension ``(M, N)``
-#         b (cupy.ndarray): "Dependent variable" values with dimension ``(M,)``
-#             or ``(M, K)``
-#         rcond (float): Cutoff parameter for small singular values.
-#             For stability it computes the largest singular value denoted by
-#             ``s``, and sets all singular values smaller than ``s`` to zero.
-#      Returns:
-#         cupy.ndarray: The least-squares solution with shape ``(N,)`` or
-#             ``(N, K)`` depending if ``b`` was two-dimensional.
-#      Notes:
-#         This only returns the least-squares solution! Note that
-#         `numpy.linalg.lstsq` returns the residuals, rank, and singular values
-#         in addition to the least-squares solution.
-#      .. seealso:: :func:`numpy.linalg.lstsq`
-#     """
-#     # b_shape = b.shape
-#     # u, s, vt = cp.linalg.svd(a, full_matrices=False)
-#     # cutoff = rcond * s.max()
-#     # s1 = 1 / s
-#     # s1[s <= cutoff] = 0
-#     # if len(b_shape) > 1:
-#     #     s1 = cp.repeat(s1.reshape(-1, 1), b_shape[1], axis=1)
-#     # z = cp.dot(u.transpose(), b) * s1
-#     # x = cp.dot(vt.transpose(), z
-#     # return x
-#     m, n = a.shape[-2:]
-#     m2 = b.shape[0]
-#     if m != m2:
-#         raise cp.linalg.LinAlgError('Incompatible dimensions')
-
-#     u, s, vt = cp.linalg.svd(a, full_matrices=False)
-#     # number of singular values and matrix rank
-#     cutoff = rcond * s.max()
-#     s1 = 1 / s
-#     sing_vals = s <= cutoff
-#     s1[sing_vals] = 0
-#     rank = s.size - sing_vals.sum()
-
-#     if b.ndim == 2:
-#         s1 = cp.repeat(s1.reshape(-1, 1), b.shape[1], axis=1)
-#     # Solve the least-squares solution
-#     z = cp.dot(u.transpose(), b) * s1
-#     x = cp.dot(vt.transpose(), z)
-#     # Calculate squared Euclidean 2-norm for each column in b - a*x
-#     if rank != n or m <= n:
-#         resids = cp.array([], dtype=a.dtype)
-#     elif b.ndim == 2:
-#         e = b - cp.dot(a, x)
-#         resids = cp.sum(cp.square(e), axis=0)
-#     else:
-#         e = b - cp.dot(a, x)
-#         resids = cp.dot(e.T, e).reshape(-1)
-#     return x, resids, rank, s
+"""
+f is either h5py.File or h5py.group
+this will save simulation object recursively
+"""            
+def _save_object(f,obj,end_here=False):
+    for key,value in obj.__dict__.items():
+        if isinstance(value,int) or isinstance(value,float) or isinstance(value,str) or isinstance(value,bool):
+            f.create_dataset(key,data=value)
+            continue
+        elif isinstance(value,cp.core.core.ndarray):
+            if key == 'H' or  key == 'I' or key =='H_t_H' or key == 'Dmatrix' or key == 'Imatrix' or key == 'ix' or key =='iy':#do not save again H and H_t_H
+                continue
+            else:
+                if value.ndim >0:
+                    f.create_dataset(key,data=cp.asnumpy(value),compression='gzip')
+                else:
+                    f.create_dataset(key,data=cp.asnumpy(value))
+        elif isinstance(value,np.ndarray):
+            if value.ndim >0:
+                f.create_dataset(key,data=value,compression='gzip')
+            else:
+                f.create_dataset(key,data=value)
+            continue
+        else:
+            if not end_here:
+                
+                typeStr = str(type(value))
+                if isinstance(value,list):
+                    for i in range(len(value)):
+                        grp = f.create_group(key + ' {0}'.format(i))
+                        _save_object(grp,value[i],end_here=True)
+                elif ('pCN' in typeStr) or ('TwoDMeasurement' in typeStr) or ('FourierAnalysis_2D' in typeStr):
+                    grp = f.create_group(key)
+                    _save_object(grp,value,end_here=True)

@@ -9,6 +9,9 @@ import pathlib
 import cupy as cp
 import mcmc.util_cupy as util
 import mcmc.util_2D as u2
+import scipy.special as ssp
+import time
+import h5py
 ORDER = 'C'
 
 
@@ -324,7 +327,7 @@ class Layer():
 
         self.stdev = ones_compl_dummy
         self.stdev_sym = util.symmetrize(self.stdev)
-        self.samples_history = np.empty((self.n_samples, self.pcn.fourier.basis_number_2D_ravel), dtype=cp.complex64)
+        self.samples_history = np.empty((self.n_samples, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
     
         self.LMat = Lmatrix_2D(self.pcn.fourier,self.sqrt_beta)
         self.current_noise_sample = self.pcn.random_gen.construct_w()#noise sample always symmetric
@@ -394,3 +397,185 @@ class Layer():
         self.current_sample_scaled_norm = self.new_sample_scaled_norm
         self.current_log_L_det = self.new_log_L_det
         self.current_noise_sample = self.new_noise_sample.copy()      
+
+
+class Simulation():
+    def __init__(self,n_layers,n_samples,n,n_extended,beta,kappa,sigma_0,sigma_v,sigma_scaling,meas_std,evaluation_interval,printProgress,
+                    seed,burn_percentage,enable_beta_feedback,pcn_variant):
+        self.n_samples = n_samples
+        self.evaluation_interval = evaluation_interval
+        self.burn_percentage = burn_percentage
+        #set random seed
+        self.random_seed = seed
+        self.printProgress = printProgress
+        self.n_layers=n_layers
+        self.kappa = kappa
+        self.sigma_0 = sigma_0
+        self.sigma_v = sigma_v
+        self.sigma_scaling = sigma_scaling
+        self.enable_beta_feedback = enable_beta_feedback
+        cp.random.seed(self.random_seed)
+        
+        
+        #setup parameters for 1 Dimensional simulation
+        self.d = 1
+        self.nu = 2 - self.d/2
+        self.alpha = self.nu + self.d/2
+        self.t_start = -0.5
+        self.t_end = 0.5
+        self.beta_u = (sigma_0**2)*(2**self.d * util.PI**(self.d/2) * ssp.gamma(self.alpha))/ssp.gamma(self.nu)
+        self.beta_v = self.beta_u*(sigma_v/sigma_0)**2
+        self.sqrtBeta_v = cp.sqrt(self.beta_v).astype('float32')
+        self.sqrtBeta_0 = cp.sqrt(self.beta_u).astype('float32')
+        
+        f =  FourierAnalysis_2D(n,n_extended,self.t_start,self.t_end)
+        self.fourier = f
+        
+        rg = RandomGenerator_2D(f.basis_number)
+        self.random_gen = rg
+        
+
+        LuReal = ((f.Dmatrix*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*f.Imatrix)/self.sqrtBeta_0).astype('float32')
+        Lu = LuReal + 1j*cp.zeros(LuReal.shape,dtype=cp.float32)
+        
+        uStdev_sym = -1/cp.diag(Lu)
+        uStdev = uStdev_sym[f.basis_number_2D_ravel-1:]
+        uStdev[0] /= 2 #scaled
+
+        
+        self.measurement = TwoDMeasurement('shepp.png',target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
+        self.pcn_variant = pcn_variant
+        self.pcn = pCN(n_layers,rg,self.measurement,f,beta,self.pcn_variant)
+        # self.pcn_pair_layers = pcn_pair_layers
+        
+        
+        
+        self.pcn.record_skip = np.max(cp.array([1,self.n_samples//self.pcn.max_record_history]))
+        history_length = np.min(np.array([self.n_samples,self.pcn.max_record_history])) 
+        self.pcn.sqrtBetas_history = np.empty((history_length, self.n_layers), dtype=np.float64)
+        Layers = []
+        for i in range(self.n_layers):
+            if i==0:
+                init_sample_sym = uStdev_sym*self.pcn.random_gen.construct_w()
+                lay = Layer(True, self.sqrtBeta_0,i, n_samples, self.pcn,init_sample_sym)
+                lay.LMat.current_L = Lu
+                lay.LMat.latest_computed_L = Lu
+                lay.stdev_sym = uStdev_sym
+                lay.stdev = uStdev
+            else:
+                if i == n_layers-1:
+                    lay = Layer(False, self.sqrtBeta_v,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
+                    wNew =  self.pcn.random_gen.construct_w()
+                    eNew = cp.random.randn(self.pcn.measurement.num_sample,dtype=cp.float32)
+                    wBar = cp.concatenate((eNew,wNew))
+                    LBar = cp.vstack(( self.pcn.H,lay.LMat.current_L))
+                    lay.current_sample_sym, res, rnk, s = cp.linalg.lstsq(LBar, self.pcn.yBar-wBar,rcond=-1)#,rcond=None)
+                    lay.current_sample = lay.current_sample_sym[f.basis_number_2D_ravel-1:]
+                else:
+                    # lay = layer.Layer(False, sqrtBeta_v*np.sqrt(sigma_scaling),i, n_samples, pcn,Layers[i-1].current_sample)
+                    lay = Layer(False, self.sqrtBeta_v*0.1,i, self.n_samples, self.pcn,Layers[i-1].current_sample)
+
+            lay.update_current_sample()
+            self.pcn.Layers_sqrtBetas[i] = lay.sqrt_beta
+            lay.samples_history = np.empty((history_length, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
+            Layers.append(lay)
+
+        self.Layers = Layers
+    
+    def run(self):
+        self.accepted_count = 0
+        self.accepted_count_SqrtBeta = 0
+        average_time_intv =0.0
+        
+        if self.printProgress:
+            util.printProgressBar(0, self.n_samples, prefix = 'Preparation . . . . ', suffix = 'Complete', length = 50)
+        start_time = time.time()
+        start_time_intv = start_time
+
+        accepted_count_partial = 0
+        linalg_error_occured = False
+        for i in range(self.n_samples):#nb.prange(nSim):
+            try:
+                if self.pcn_variant == "dunlop":
+                    accepted_count_partial += self.pcn.one_step_non_centered_dunlop(self.Layers) 
+                    
+            except np.linalg.LinAlgError as err:
+                linalg_error_occured = True
+                print("Linear Algebra Error :",err)
+                continue
+            else:
+                if (i+1)%(self.evaluation_interval) == 0:
+                    self.accepted_count += accepted_count_partial
+                    self.acceptancePercentage = self.accepted_count/(i+1)
+                        
+                    if self.enable_beta_feedback:
+                        self.pcn.adapt_beta(self.acceptancePercentage)
+                    
+                    accepted_count_partial = 0
+                    mTime = (i+1)/(self.evaluation_interval)
+                    
+                    end_time_intv = time.time()
+                    time_intv = end_time_intv-start_time_intv
+                    average_time_intv +=  (time_intv-average_time_intv)/mTime
+                    start_time_intv = end_time_intv
+                    remainingTime = average_time_intv*((self.n_samples - i)/self.evaluation_interval)
+                    remainingTimeStr = time.strftime("%j-1 day(s),%H:%M:%S", time.gmtime(remainingTime))
+                    if self.printProgress:
+                        util.printProgressBar(i+1, self.n_samples, prefix = 'Time Remaining {0}- Acceptance Rate {1:.2%} - Progress:'.format(remainingTimeStr,self.acceptancePercentage), suffix = 'Complete', length = 50)
+
+        # with nb.objmode():
+        if linalg_error_occured:
+            if self.printProgress:
+                #truncating the each layer history
+                end_index = i%self.pcn.record_skip
+                for l in range(self.n_layers):
+                    self.Layers[l].samples_history = self.Layers[l].samples_history[:end_index,:]
+                print('Linear algebra errors occured during some simulation step(s). The simulation result may not be valid')
+        else:
+            elapsedTimeStr = time.strftime("%j day(s),%H:%M:%S", time.gmtime(time.time()-start_time))
+            self.total_time = time.time()-start_time
+            if self.printProgress:
+                util.printProgressBar(self.n_samples, self.n_samples, 'Iteration Completed in {0}- Acceptance Rate {1:.2%} - Progress:'.format(elapsedTimeStr,self.acceptancePercentage), suffix = 'Complete', length = 50)
+    
+
+    def save(self,file_name,include_history=False):
+        with h5py.File(file_name,'w') as f:
+            util._save_object(f,self)
+
+
+
+
+        # with h5py.File(file_name,'w') as f:
+        #     for key,value in self.__dict__.items():
+        #         NumbaType = 'numba.' in str(type(value))
+        #         ListType = isinstance(value,list)
+        #         if not NumbaType and not ListType:
+        #             f.create_dataset(key,data=value)
+        #         else:
+        #             if key == 'sim_result':
+        #                 f.create_dataset('vtHalf',data=value.vtHalf,compression='gzip')
+        #                 f.create_dataset('vtF',data=value.vtF,compression='gzip')
+        #                 f.create_dataset('uHalfMean',data=value.uHalfMean,compression='gzip')
+        #                 f.create_dataset('uHalfStdReal',data=value.uHalfStdReal,compression='gzip')
+        #                 f.create_dataset('uHalfStdImag',data=value.uHalfStdImag,compression='gzip')
+        #                 f.create_dataset('elltMean',data=value.elltMean,compression='gzip')
+        #                 f.create_dataset('elltStd',data=value.elltStd,compression='gzip')
+        #                 f.create_dataset('utMean',data=value.utMean,compression='gzip')
+        #                 f.create_dataset('utStd',data=value.utStd,compression='gzip')
+        #                 continue
+        #             if key == 'pcn':
+        #                 f.create_dataset('beta',data=value.beta)                        
+        #                 f.create_dataset('record_skip',data=value.record_skip)                        
+        #                 f.create_dataset('record_count',data=value.record_count)                        
+        #                 f.create_dataset('max_record_history',data=value.max_record_history)                        
+        #                 f.create_dataset('target_acceptance_rate',data=value.target_acceptance_rate)                        
+        #                 f.create_dataset('beta_feedback_gain',data=value.beta_feedback_gain)                        
+        #                 f.create_dataset('Layers_sqrtBetas',data=value.Layers_sqrtBetas)                        
+        #                 f.create_dataset('stdev_sqrtBetas',data=value.stdev_sqrtBetas)                        
+        #                 f.create_dataset('sqrtBetas_history',data=value.sqrtBetas_history)                        
+        #                 continue
+        #             if include_history and key == 'Layers':
+        #                 for i in range(self.n_layers):
+        #                     f.create_dataset('Layer - {0} samples'.format(i),data=value[i].samples_history,compression='gzip')
+                    
+ 
