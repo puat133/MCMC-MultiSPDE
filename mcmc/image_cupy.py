@@ -213,8 +213,9 @@ class pCN():
         self.set_beta(cp.min(cp.array([(1-self.aggresiveness)*self.beta,1e-10],dtype=cp.float32)))
 
     def set_beta(self,newBeta):
-        self.beta = newBeta
-        self.betaZ = cp.sqrt(1-newBeta**2)
+        if 1e-7<newBeta<1:
+            self.beta = newBeta
+            self.betaZ = cp.sqrt(1-newBeta**2)
         
     def one_step_non_centered_dunlop(self,Layers):
         accepted = 0
@@ -443,7 +444,7 @@ class Simulation():
         uStdev[0] /= 2 #scaled
 
         
-        self.measurement = TwoDMeasurement('shepp.png',target_size=f.extended_basis_number,stdev=meas_std,relative_location='phantom_images')
+        self.measurement = TwoDMeasurement('shepp.png',target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
         self.pcn_variant = pcn_variant
         self.pcn = pCN(n_layers,rg,self.measurement,f,beta,self.pcn_variant)
         # self.pcn_pair_layers = pcn_pair_layers
