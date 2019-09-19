@@ -15,6 +15,7 @@ import time
 import math
 import mcmc.image_cupy as im
 import h5py
+from numba import cuda
 SQRT2 = cp.float32(1.41421356)
 PI = cp.float32(cp.pi)
 
@@ -338,6 +339,19 @@ def constructH(tx,ty,ix,iy):
     for i in range(tx.shape[0]):
         H[i,:] = eigenFunction2D(tx[-i],ty[-i],ix,iy)
     return H
+
+
+@cuda.jit
+def matMultiParallel(A,B,C):
+    """
+    CUDA Kernel to do matrix multiplication where
+    A, D are square matrices of same shape
+    and D is a diagonal matrix
+    """
+    i, j = cuda.grid(2)
+    if i<A.shape[0] and j<A.shape[1]:
+        C[i,j] = A[i,j]*B[j,j]
+
 
 """
 f is either h5py.File or h5py.group
