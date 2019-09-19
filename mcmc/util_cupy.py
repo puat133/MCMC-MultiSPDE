@@ -353,6 +353,21 @@ def matMultiParallel(A,B,C):
         C[i,j] = A[i,j]*B[j,j]
 
 
+def sigmasLancosTwo(n):
+    """
+    sigma Lancos coefficients for calculating inverse Fourier Transforms
+    """
+    temp = cp.zeros(2*n-1)
+    for i in  cp.arange(2*n-1):
+        k=i-(n-1)
+        if k==0:
+            temp[i] = 1
+            continue
+        else:
+            temp[i] = cp.sin(PI*(k/n))/(PI*(k/n))
+
+    return cp.outer(temp,temp)
+
 """
 f is either h5py.File or h5py.group
 this will save simulation object recursively
