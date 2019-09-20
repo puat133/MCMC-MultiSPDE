@@ -192,6 +192,7 @@ class pCN():
         self.I = cp.eye(self.measurement.num_sample)
         self.y = self.measurement.y
         self.yBar = cp.concatenate((self.y,cp.zeros(2*self.fourier.basis_number_2D_ravel-1)))
+        self.meas_var = self.measurement.stdev**2
         
     
         self.aggresiveness = 0.2
@@ -228,7 +229,7 @@ class pCN():
             else:
                 Layers[i].new_sample_sym = Layers[i].stdev_sym*Layers[i].new_noise_sample
             Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
-        meas_var = self.measurement.stdev**2
+        
         # y = self.measurement.yt
         L = Layers[-1].LMat.current_L
         temp = L.conj().T@L
@@ -237,7 +238,7 @@ class pCN():
         Ht = cp.linalg.solve(c.astype(cp.complex64),self.H.conj().T)
         
         R_inv = self.I - (Ht.conj().T@Ht).real
-        logRatio = 0.5*(self.y@R_inv@self.y - cp.linalg.slogdet(R_inv/meas_var)[1])
+        logRatio = 0.5*(self.y@R_inv@self.y - cp.linalg.slogdet(R_inv/self.meas_var)[1])
 
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
         temp = L.conj().T@L
@@ -246,7 +247,7 @@ class pCN():
         Ht = cp.linalg.solve(c.astype(cp.complex64),self.H.conj().T)
         
         R_inv = self.I - (Ht.conj().T@Ht).real
-        logRatio -= 0.5*(self.y@R_inv@self.y - cp.linalg.slogdet(R_inv/meas_var)[1])
+        logRatio -= 0.5*(self.y@R_inv@self.y - cp.linalg.slogdet(R_inv/self.meas_var)[1])
             
         if logRatio>cp.log(cp.random.rand()):
             accepted = 1
