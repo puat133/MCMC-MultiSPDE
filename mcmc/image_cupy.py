@@ -402,7 +402,7 @@ class Layer():
 
 class Simulation():
     def __init__(self,n_layers,n_samples,n,n_extended,beta,kappa,sigma_0,sigma_v,sigma_scaling,meas_std,evaluation_interval,printProgress,
-                    seed,burn_percentage,enable_beta_feedback,pcn_variant):
+                    seed,burn_percentage,enable_beta_feedback,pcn_variant,phantom_name):
         self.n_samples = n_samples
         self.evaluation_interval = evaluation_interval
         self.burn_percentage = burn_percentage
@@ -444,7 +444,7 @@ class Simulation():
         uStdev[0] /= 2 #scaled
 
         
-        self.measurement = TwoDMeasurement('shepp.png',target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
+        self.measurement = TwoDMeasurement(phantom_name,target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
         self.pcn_variant = pcn_variant
         self.pcn = pCN(n_layers,rg,self.measurement,f,beta,self.pcn_variant)
         # self.pcn_pair_layers = pcn_pair_layers

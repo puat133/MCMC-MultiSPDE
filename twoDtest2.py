@@ -104,13 +104,14 @@ if __name__=='__main__':
     parser.add_argument('--sigma-scaling',default=1e-3,type=float,help='Sigma_scaling constant, Default=1e-3')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
     parser.add_argument('--variant',default="dunlop",type=str,help='preconditioned Crank Nicholson multilayered algorithm variant, Default=dunlop')
+    parser.add_argument('--phantom-name',default="shepp.png",type=str,help='Phantom name, Default=shepp.png')
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=True,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
 
     args = parser.parse_args()
     sim = im.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,n_extended = args.n_extended,beta = args.beta,
                     kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,meas_std=0.1,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
-                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant)
+                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant,phantom_name=args.phantom_name)
     
     folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
     if 'WRKDIR' in os.environ:
@@ -123,39 +124,4 @@ if __name__=='__main__':
         simResultPath.mkdir()
     sim.run()
     sim.save(str(simResultPath/'result.hdf5'))
-    #%%
-    mean_field = util.symmetrize(cp.asarray(np.mean(sim.Layers[-1].samples_history,axis=0)))
-    u_mean_field = util.symmetrize(cp.asarray(np.mean(sim.Layers[0].samples_history,axis=0)))
-    vF = mean_field.reshape(2*sim.fourier.basis_number-1,2*sim.fourier.basis_number-1,order=im.ORDER).T
-    uF = u_mean_field.reshape(2*sim.fourier.basis_number-1,2*sim.fourier.basis_number-1,order=im.ORDER).T
-    vForiginal = util.symmetrize_2D(sim.fourier.fourierTransformHalf(sim.measurement.target_image))
-    vFwithNoise = util.symmetrize_2D(sim.fourier.fourierTransformHalf(sim.measurement.corrupted_image))
-    vFn = cp.asnumpy(vF)
-    uFn = cp.asnumpy(uF)
-    vForiginaln  = cp.asnumpy(vForiginal)
-    fig, ax = plt.subplots(nrows=2,ncols=3,figsize=(40,40))
-    im = ax[0,0].imshow(vFn.real,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[0,0].set_label('Real Part of Fourier Transform of vF')
-    im = ax[0,1].imshow(vForiginaln.real,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[0,1].set_label('Real Part of Fourier Transform of vFOriginal')
-    im = ax[0,2].imshow((vForiginaln-vFn).real,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[0,2].set_label('Real Part of Fourier Transform of (vF-vFOriginal)')
-    im = ax[1,0].imshow(vFn.imag,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[1,0].set_label('Imaginary Part of Fourier Transform of vF')
-    im = ax[1,1].imshow(vForiginaln.imag,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[1,1].set_label('Imaginary Part of Fourier Transform of vFOriginal')
-    im = ax[1,2].imshow((vForiginaln-vFn).imag,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[1,2].set_label('Imaginary Part of Fourier Transform of (vF-vFOriginal)')
-
-    fig.savefig(str(simResultPath/'FourierDomain.pdf'), bbox_inches='tight')
-    #%%
-    reconstructed_image = sim.fourier.inverseFourierLimited(vF[:,sim.fourier.basis_number-1:])
-    reconstructed_image_uF = sim.fourier.inverseFourierLimited(uF[:,sim.fourier.basis_number-1:])
-    reconstructed_image_original = sim.fourier.inverseFourierLimited(vForiginal[:,sim.fourier.basis_number-1:])
-    reconstructed_image_withNoise = sim.fourier.inverseFourierLimited(vFwithNoise[:,sim.fourier.basis_number-1:])
-    scale = (cp.max(reconstructed_image)-cp.min(reconstructed_image))/(cp.max(reconstructed_image_original)-cp.min(reconstructed_image_original))
-    ri_n = cp.asnumpy(scale*reconstructed_image)
-    ri_or_n = cp.asnumpy(reconstructed_image_original)
-    ri_wn_n = cp.asnumpy(reconstructed_image_withNoise)
-    ri_ls_n = cp.asnumpy(cp.exp(reconstructed_image_uF))
-    fig, ax = plt.subplots(ncols=3,nrows=3,figsize=(40,40))
-    im = ax[0,0].imshow(ri_n,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[0,0].set_label('Reconstructed Image From vF')
-    im = ax[0,1].imshow(ri_or_n,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[0,1].set_label('Reconstructed Image From vFOriginal')
-    im = ax[0,2].imshow(ri_wn_n,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[0,2].set_label('Reconstructed Image From vFOriginal_with_Noise')
-    im = ax[1,0].imshow((ri_n-ri_or_n),cmap=plt.cm.Greys_r);fig.colorbar(im);ax[1,0].set_label('Difference between Reconstructed Image From vF and vFOriginal')
-    im = ax[1,1].imshow(ri_ls_n,cmap=plt.cm.Greys_r);fig.colorbar(im);ax[1,1].set_label('Real Part of Fourier Transform of vF')
-    fig.savefig(str(simResultPath/'Reconstructed.pdf'), bbox_inches='tight')
+    # 
