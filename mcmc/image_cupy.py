@@ -12,6 +12,7 @@ import mcmc.util_2D as u2
 import scipy.special as ssp
 import time
 import h5py
+from cupy.prof import TimeRangeDecorator as cupy_profile
 ORDER = 'C'
 
 
@@ -217,7 +218,8 @@ class pCN():
         if 1e-7<newBeta<1:
             self.beta = newBeta
             self.betaZ = cp.sqrt(1-newBeta**2)
-        
+    
+    @cupy_profile()    
     def one_step_non_centered_dunlop(self,Layers):
         accepted = 0
         logRatio = 0.0

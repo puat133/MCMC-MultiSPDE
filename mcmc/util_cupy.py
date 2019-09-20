@@ -15,6 +15,7 @@ import time
 import math
 import mcmc.image_cupy as im
 import h5py
+from cupy.prof import TimeRangeDecorator as cupy_profile
 from numba import cuda
 SQRT2 = cp.float32(1.41421356)
 PI = cp.float32(cp.pi)
@@ -61,7 +62,7 @@ def matMulti(A,D):
 #     # return  cp.sum(cp.log(cp.absolute(cp.linalg.eigvals(L))))
 
 # @nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
-
+@cupy_profile()
 def kappaFun(ut):
     """
     kappa function as a function of u in time domain
