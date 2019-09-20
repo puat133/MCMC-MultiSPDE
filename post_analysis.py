@@ -13,7 +13,7 @@ import mcmc.image_cupy as imc
 import pathlib
 
 SimulationResult_dir = pathlib.Path("//data.triton.aalto.fi/work/emzirm1/SimulationResult/")
-SimulationResult_dir = SimulationResult_dir /'result-20-Sep-2019_10_50'
+SimulationResult_dir = SimulationResult_dir /'result-20-Sep-2019_12_34'
 file = h5py.File(str(SimulationResult_dir/'result.hdf5'),mode='r')
 samples_history = file['Layers 1/samples_history'][()]
 u_samples_history = file['Layers 0/samples_history'][()]
