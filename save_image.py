@@ -18,6 +18,7 @@ def save_image(data, cm, fn):
     ax.set_axis_off()
     fig.add_axes(ax)
  
-    ax.imshow(data, cmap=cm)
+    ax.imshow(data, cmap=cm,vmin=0,vmax=1)
+    ax.autoscale(False)
     plt.savefig(fn, dpi = height) 
     plt.close()

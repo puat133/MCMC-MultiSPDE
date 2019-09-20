@@ -10,8 +10,11 @@ import mcmc.util_cupy as util
 import matplotlib.pyplot as plt
 import cupy as cp, numpy as np
 import mcmc.image_cupy as imc
+import pathlib
 
-file = h5py.File(r'\\data.triton.aalto.fi\work\emzirm1\SimulationResult\result-19-Sep-2019_12_46\result.hdf5',mode='r')
+SimulationResult_dir = pathlib.Path("//data.triton.aalto.fi/work/emzirm1/SimulationResult/")
+SimulationResult_dir = SimulationResult_dir /'result-20-Sep-2019_10_50'
+file = h5py.File(str(SimulationResult_dir/'result.hdf5'),mode='r')
 samples_history = file['Layers 1/samples_history'][()]
 u_samples_history = file['Layers 0/samples_history'][()]
 mean_field = util.symmetrize(cp.asarray(np.mean(samples_history,axis=0)))
@@ -46,9 +49,10 @@ fig, ax = plt.subplots(ncols=3,nrows=3,figsize=(15,15))
 im = ax[0,0].imshow(ri_n_scalled,cmap=plt.cm.Greys_r);ax[0,0].set_title('Reconstructed Image From vF: RI')
 im = ax[0,1].imshow(target_image,cmap=plt.cm.Greys_r);ax[0,1].set_title('Target Image : TI')
 im = ax[0,2].imshow(ri_or_n,cmap=plt.cm.Greys_r);ax[0,2].set_title('Reconstructed Image From vFOriginal :RIO')
-im = ax[1,0].imshow(target_image-ri_n_scalled,cmap=plt.cm.Greys_r);ax[1,0].set_title('Difference with Target :RI-TI')
-im = ax[1,1].imshow(ri_or_n-target_image,cmap=plt.cm.Greys_r);ax[1,1].set_title('Difference with Target :RIO-TI')
-im = ax[1,2].imshow(ri_n_scalled-ri_or_n,cmap=plt.cm.Greys_r);ax[1,2].set_title('Difference with Target :RI-RIO')
+im = ax[1,0].imshow(np.abs(target_image-ri_n_scalled),cmap=plt.cm.Greys_r);ax[1,0].set_title('Absolute error:RI-TI')
+im = ax[1,1].imshow(np.abs(ri_or_n-target_image),cmap=plt.cm.Greys_r);ax[1,1].set_title('Absolute error:RIO-TI')
+im = ax[1,2].imshow(np.abs(ri_n_scalled-ri_or_n),cmap=plt.cm.Greys_r);ax[1,2].set_title('Absolute error:RI-RIO')
 im = ax[2,0].imshow(u_n,cmap=plt.cm.Greys_r);ax[2,0].set_title('Field u:u')
 im = ax[2,1].imshow(ell_n,cmap=plt.cm.Greys_r);ax[2,1].set_title('Length Scale of v:ell')
 im = ax[2,2].imshow(corrupted_image,cmap=plt.cm.Greys_r);ax[2,2].set_title('Measurement (corrupted_image) :CI')
+fig.savefig(str(SimulationResult_dir/'Result.pdf'), bbox_inches='tight')
