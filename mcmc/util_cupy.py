@@ -20,7 +20,7 @@ from numba import cuda
 SQRT2 = cp.float32(1.41421356)
 PI = cp.float32(cp.pi)
 
-
+#@cupy_profile()
 def construct_w_Half(n):
     wHalf = cp.random.randn(n,dtype=cp.float32)+1j*cp.random.randn(n,dtype=cp.float32)
     # wHalf[0] = wHalf[0].real*cp.sqrt(2)
@@ -28,13 +28,13 @@ def construct_w_Half(n):
     # return wHalf/cp.sqrt(2)
     return wHalf/SQRT2
 
-
+#@cupy_profile()
 def inner(u,v):
     return cp.inner(u,v)
 
 
 # @nb.vectorize([nb.complex128(nb.int64,nb.float64)],cache=CACHE,nopython=True)
-
+#@cupy_profile()
 def eigenFunction1D(i,t):
     """
     Return an eigen function of Laplacian operator in one dimension
@@ -43,7 +43,7 @@ def eigenFunction1D(i,t):
     """
     return cp.exp(2*PI*1j*i*t)
 
-
+#@cupy_profile()
 def matMulti(A,D):
     """
     Matrix multiplication A@D where A,D is a diagonal matrices, and D is a diagonal matrix
@@ -62,7 +62,7 @@ def matMulti(A,D):
 #     # return  cp.sum(cp.log(cp.absolute(cp.linalg.eigvals(L))))
 
 # @nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
-@cupy_profile()
+#@cupy_profile()
 def kappaFun(ut):
     """
     kappa function as a function of u in time domain
@@ -99,7 +99,7 @@ def kappaFun(ut):
 #     return xp.exp(-0.5*ut)
 #     # return cp.sqrt(kappaFun(ut))
 
-
+#@cupy_profile()
 def norm2(u):
     """
     Compute euclidean squared norm 2 of a complex vector
@@ -127,7 +127,7 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     if iteration == total: 
         print()
 
-
+#@cupy_profile()
 def sigmasLancos(n):
     """
     sigma Lancos coefficients for calculating inverse Fourier Transforms
@@ -157,7 +157,7 @@ def finalizeWelford(existingAggregate):
     # else:
     return (mean, variance)
 
-
+#@cupy_profile()
 def extend(uSymmetric,num):
     # xp = cp.get_array_module(uSymmetric) 
     n = (uSymmetric.shape[0]+1)//2
@@ -168,7 +168,7 @@ def extend(uSymmetric,num):
     else: 
         return uSymmetric
 
-
+#@cupy_profile()
 def symmetrize(w_half):
     # xp = cp.get_array_module(w_half)
     w = cp.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
@@ -180,7 +180,7 @@ def symmetrize(w_half):
 #     return fromUHalfToUHalf2D(wHalf,n)/SQRT2
 
   
-
+#@cupy_profile()
 def construct_w_Half_2D_ravelled(n):
     wHalf = construct_w_Half(2*n*n-2*n+1)
     return wHalf/SQRT2
@@ -196,12 +196,12 @@ def construct_w_Half_2D_ravelled(n):
 #     uHalf = uHalf2D.T.ravel()
 #     return uHalf[n-1:]
 
-
+#@cupy_profile()
 def construct_w_2D_ravelled(n):
     uHalf = construct_w_Half_2D_ravelled(n)
     return cp.concatenate((uHalf[:0:-1].conj(),uHalf))
 
-
+#@cupy_profile()
 def symmetrize_2D(uHalf2D):
     # xp = cp.get_array_module(uHalf2D)
     uHalfW=uHalf2D[:,1:]
@@ -212,13 +212,13 @@ def symmetrize_2D(uHalf2D):
 # def from_u_2D_ravel_to_u_2D(u,n):
 #     return u.reshape(2*n-1,2*n-1)
 
-
+#@cupy_profile()
 def from_u_2D_ravel_to_uHalf_2D(u,n):
     return u.reshape(2*n-1,2*n-1,order=im.ORDER)[:,n-1:]
 
 
 
-
+#@cupy_profile()
 def extend2D(uIn,num): 
     if uIn.shape[1] != uIn.shape[0]: #uHalfCase
         n = uIn.shape[1]
@@ -237,28 +237,28 @@ def extend2D(uIn,num):
         else: 
             return uIn
 
-
+#@cupy_profile()
 def kappa_pow_min_nu(u):
     """
     for d=2, and alpha =2 nu = 1
     """
     return 1/kappaFun(u)
 
-
+#@cupy_profile()
 def kappa_pow_d_per_2(u):
     """
     for d=2, and d/2 = 1
     """
     return kappaFun(u)
     
-
+#@cupy_profile()
 def rfft2(z,n):
     # xp = cp.get_array_module(z)
     m = z.shape[0]
     zrfft = cp.fft.fftshift(cp.fft.rfft2(z,norm="ortho"),axes=0)
     return zrfft[m//2 -(n-1):m//2 +n,:n]
     
-
+#@cupy_profile()
 def irfft2(uHalf2D,num):
     """
     Fourier transform of one dimensional signal
@@ -276,7 +276,7 @@ def irfft2(uHalf2D,num):
     # return cp.fft.irfft2(uh,s=(num,num))
     return uh
 
-
+#@cupy_profile()
 def constructU(uHalf2D,index):
     n = uHalf2D.shape[1]
     
@@ -284,20 +284,20 @@ def constructU(uHalf2D,index):
     return res
 
     
-
+#@cupy_profile()
 def constructMatexplicit(uHalf2D,fun,num,index):
     temp = fun(irfft2(uHalf2D,num))
     temp2 = rfft2(temp,uHalf2D.shape[1])
     return constructU(temp2,index)
 
-
+#@cupy_profile()
 def constructLexplicit(uHalf2D,D,num,sqrtBeta,index):
     Ku_pow_min_nu = constructMatexplicit(uHalf2D,kappa_pow_min_nu,num,index)
     Ku_pow_d_per_2 = constructMatexplicit(uHalf2D,kappa_pow_d_per_2,num,index)
     L = (matMulti(Ku_pow_min_nu,D) - Ku_pow_d_per_2)/sqrtBeta
     return L
 
-
+#@cupy_profile()
 def createUindex(n):
     innerlength = (2*n-1)
     length = innerlength**2
@@ -316,7 +316,7 @@ def createUindex(n):
     
     return (iY,iX)
 
-
+#@cupy_profile()
 def eigenFunction2D(tx,ty,kx,ky):
     """
     Return an eigen function of Laplacian operator in one dimension
@@ -327,7 +327,7 @@ def eigenFunction2D(tx,ty,kx,ky):
     """
     return cp.exp(1j*(2*PI)*(kx*tx+ky*ty)) #<-- why the eigen function has to be in this form?
 
-
+#@cupy_profile()
 def constructH(tx,ty,ix,iy):
     """
     (iX,iY) are meshgrid, but ravelled
@@ -353,7 +353,7 @@ def matMultiParallel(A,B,C):
     if i<A.shape[0] and j<A.shape[1]:
         C[i,j] = A[i,j]*B[j,j]
 
-
+#@cupy_profile()
 def sigmasLancosTwo(n):
     """
     sigma Lancos coefficients for calculating inverse Fourier Transforms

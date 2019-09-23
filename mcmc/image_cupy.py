@@ -42,21 +42,21 @@ class FourierAnalysis_2D:
         iY = cp.asarray(temp[1])
         Index = (iX,iY)
         self.Index = Index
-    
+    #@cupy_profile()
     def inverseFourierLimited(self,uHalf2D):
         #if order = 'C' then it needs transpose
         return util.irfft2(uHalf2D,self.extended_basis_number)
         # return util.irfft2(uHalf2D,self.extended_basis_number)
-
+    #@cupy_profile()
     def fourierTransformHalf(self,z):
         return util.rfft2(z,self.basis_number)
-
+    #@cupy_profile()
     def constructU(self,uHalf2D):
         """
         Construct Toeplitz Matrix
         """
         return util.constructU(uHalf2D,self.Index)
-    
+    #@cupy_profile()
     def constructMatexplicit(self,uHalf2D,fun):
         temp = fun(self.inverseFourierLimited(uHalf2D)).T
         temp2 = self.fourierTransformHalf(temp)
@@ -72,7 +72,7 @@ class Lmatrix_2D:
         self.current_L = cp.zeros((self.fourier.basis_number_2D_sym,self.fourier.basis_number_2D_sym),dtype=cp.complex64)
         self.latest_computed_L = self.current_L
         
-
+    #@cupy_profile()
     def construct_from_2D(self,uHalf2D):
         assert uHalf2D.shape[1] == self.fourier.basis_number
         Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu)
@@ -81,11 +81,11 @@ class Lmatrix_2D:
         #set LatestComputedL as L, but dont change currentL
         self.latest_computed_L = L
         return L
-
+    #@cupy_profile()
     def construct_from(self,uHalf):
         uHalf2D = util.from_u_2D_ravel_to_uHalf_2D(util.symmetrize(uHalf),self.fourier.basis_number)
         return self.construct_from_2D(uHalf2D)
-         
+    #@cupy_profile()    
     def logDet(self,new):
         """
         # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues
@@ -96,11 +96,11 @@ class Lmatrix_2D:
         else:
             return (cp.linalg.slogdet(self.current_L)[1])
 
-    
+    #@cupy_profile()
     def set_current_L_to_latest(self):
         self.current_L = self.latest_computed_L
         
-    
+    #@cupy_profile()
     def is_current_L_equals_to_the_latest(self):
         return cp.all(self.current_L == self.latest_computed_L)
 
@@ -111,18 +111,18 @@ class RandomGenerator_2D:
         self.basis_number = basis_number
         self.basis_number_2D_ravel = (2*basis_number*basis_number-2*basis_number+1)
         self.sqrt2 = util.SQRT2
-
+    #@cupy_profile()
     def construct_w_Half_2D(self):
         return util.construct_w_Half_2D(self.basis_number)
-    
+    #@cupy_profile()
     def construct_w_Half(self):
         return util.construct_w_Half(self.basis_number_2D_ravel)
-    
+    #@cupy_profile()
     def construct_w(self):
         w_half = self.construct_w_Half()
         w = self.symmetrize(w_half)
         return w
-        
+    #@cupy_profile()    
     def symmetrize(self,w_half):
         w = cp.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
         # w = cp.zeros(2*w_half.shape[0]-1,dtype=cp.complex64)
@@ -130,7 +130,7 @@ class RandomGenerator_2D:
     
         # def construct_w_2D_ravelled(self):
     #     return util.construct_w_2D_ravelled(self.basis_number)
-
+    #@cupy_profile()
     def symmetrize_2D(self,uHalf2D):
         return util.symmetrize_2D(uHalf2D)
 
@@ -151,17 +151,17 @@ class TwoDMeasurement:
                             order=1, mode='symmetric')
         self.target_image = cp.asarray(self.target_image,dtype=cp.float32)
         self.corrupted_image = self.target_image + self.stdev*cp.random.randn(self.target_image.shape[0],self.target_image.shape[1],dtype=cp.float32)
-        self.v = self.target_image.ravel(ORDER)/self.stdev
-        self.y = self.corrupted_image.ravel(ORDER)/self.stdev
+        self.v = self.target_image.ravel(ORDER)/self.stdev #Normalized
+        self.y = self.corrupted_image.ravel(ORDER)/self.stdev #Normalized
         self.num_sample = self.y.size
         temp = cp.linspace(0.,1.,num=self.dim,endpoint=True)
         ty,tx = cp.meshgrid(temp,temp)
         self.ty = ty.ravel(ORDER)
         self.tx = tx.ravel(ORDER)
-
+    #@cupy_profile()
     def get_measurement_matrix(self,ix,iy):
         H = util.constructH(self.tx,self.ty,ix.ravel(ORDER),iy.ravel(ORDER))
-        return H/self.stdev
+        return H/self.stdev #Normalized
         
         
 
@@ -204,22 +204,22 @@ class pCN():
         self.max_record_history = 10000
 
         self.Layers_sqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)      
-
+    #@cupy_profile()
     def adapt_beta(self,current_acceptance_rate):
         self.set_beta(self.beta*cp.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
-
+    #@cupy_profile()
     def more_aggresive(self):
         self.set_beta(cp.min(cp.array([(1+self.aggresiveness)*self.beta,1],dtype=cp.float32)))
-    
+    #@cupy_profile() 
     def less_aggresive(self):
         self.set_beta(cp.min(cp.array([(1-self.aggresiveness)*self.beta,1e-10],dtype=cp.float32)))
-
+    #@cupy_profile()
     def set_beta(self,newBeta):
         if 1e-7<newBeta<1:
             self.beta = newBeta
             self.betaZ = cp.sqrt(1-newBeta**2)
     
-    @cupy_profile()    
+    ##@cupy_profile()    
     def one_step_non_centered_dunlop(self,Layers):
         accepted = 0
         logRatio = 0.0
@@ -276,7 +276,7 @@ class pCN():
         self.record_count += 1
 
         return accepted
-
+    ##@cupy_profile()
     def one_step_for_sqrtBetas(self,Layers):
         sqrt_beta_noises = self.stdev_sqrtBetas*cp.random.randn(self.n_layers)
         propSqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)
@@ -367,7 +367,7 @@ class Layer():
         # self.update_current_sample()
         self.i_record = 0
 
-
+    #@cupy_profile()
     def sample(self):
         #if it is the last layer
         if self.order_number == self.pcn.n_layers -1:
@@ -387,14 +387,14 @@ class Layer():
             self.new_sample_sym = self.pcn.betaZ*self.current_sample_sym + self.pcn.beta*cp.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
             self.new_sample = self.new_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
             
-
+    #@cupy_profile()
     def sample_non_centered(self):
         self.new_noise_sample = self.pcn.betaZ*self.current_noise_sample+self.pcn.beta*self.pcn.random_gen.construct_w()
-
+    #@cupy_profile()
     def record_sample(self):
         self.samples_history[self.i_record,:] = cp.asnumpy(self.current_sample,order=ORDER)
         self.i_record += 1
-    
+    #@cupy_profile()
     def update_current_sample(self):
         self.current_sample = self.new_sample.copy()
         self.current_sample_sym = self.new_sample_sym.copy()
@@ -486,6 +486,7 @@ class Simulation():
 
         self.Layers = Layers
     
+    #@cupy_profile()
     def run(self):
         self.accepted_count = 0
         self.accepted_count_SqrtBeta = 0

@@ -116,7 +116,7 @@ def norm2(u):
         norm2 += u[i].imag*u[i].imag + u[i].real*u[i].real
     return norm2
 
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '#'):
     """
     Call in a loop to create terminal progress bar
     @params:

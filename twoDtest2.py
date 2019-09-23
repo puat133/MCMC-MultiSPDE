@@ -1,4 +1,5 @@
 #%%
+#! python
 import matplotlib.pyplot as plt
 import mcmc.image_cupy as im
 import mcmc.plotting as p
