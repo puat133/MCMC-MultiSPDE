@@ -70,11 +70,6 @@ def kappaFun(ut):
     """
     kappa function as a function of u in time domain
     """
-    # res = cp.zeros(ut.shape[0],dtype=cp.float64)
-    # for i in nb.prange(ut.shape[0]):
-    #     res[i] = math.exp(-ut[i])
-    # return res
-    # xp = cp.get_array_module(ut)
     return cp.exp(-ut)
 
 
@@ -276,7 +271,6 @@ def irfft2(uHalf2D,num):
    
     uh = cp.fft.ifftshift(uHalfExtended,axes=0)
     uh = cp.fft.irfft2(uh,s=(2*num-1,2*num-1),norm="ortho")
-    # return cp.fft.irfft2(uh,s=(num,num))
     return uh
 
 #@cupy_profile()
@@ -336,9 +330,6 @@ def constructH(tx,ty,ix,iy):
     (iX,iY) are meshgrid, but ravelled
     (tx,ty) also ravelled meshgrid
     """
-    # H = cp.empty((ix.shape[0],tx.shape[0]),dtype=cp.complex64)
-    # for i in nb.prange(ix.shape[0]):
-    #     H[i,:] = eigenFunction2D(tx,ty,ix[i],iy[i])
     H = cp.empty((tx.shape[0],ix.shape[0]),dtype=cp.complex64)
     for i in range(tx.shape[0]):
         H[i,:] = eigenFunction2D(tx[-i],ty[-i],ix,iy)

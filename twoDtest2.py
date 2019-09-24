@@ -93,6 +93,7 @@ if __name__=='__main__':
     #                 showFigures=True
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-layers',default=2,type=int,help='number SPDE layers, Default=2')
+    parser.add_argument('--n-theta',default=50,type=int,help='number theta, Default=50')
     parser.add_argument('--n',default=2**5,type=int,help='number of Fourier basis, Default=16')
     parser.add_argument('--seed',default=1,type=int,help='random generator seed, Default=1')
     parser.add_argument('--n-extended',default=2**6,type=int,help='number of point per axis, Default=64')
@@ -111,8 +112,8 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     sim = im.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,n_extended = args.n_extended,beta = args.beta,
-                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,meas_std=0.1,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
-                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant,phantom_name=args.phantom_name)
+                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,meas_std=0.25,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
+                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant,phantom_name=args.phantom_name,n_theta=args.n_theta)
     
     folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
     if 'WRKDIR' in os.environ:
