@@ -16,8 +16,7 @@ from cupy.prof import TimeRangeDecorator as cupy_profile
 ORDER = 'C'
 
 from skimage.transform import radon
-from numba import cuda
-from cmath import sin,cos,exp,sqrt,pi
+
 TPBn = 32
 TPB = (TPBn,TPBn)
 
@@ -184,32 +183,12 @@ class Sinogram(TwoDMeasurement):
     
     def get_measurement_matrix(self,ix,iy):
         theta_grid,r_grid = np.meshgrid(self.theta*np.pi/180,self.r)
-        H = cp.empty((ix.shape[0],r_grid.shape[0]*r_grid.shape[1]),dtype=np.complex64)
+        H = cp.empty((r_grid.shape[0]*r_grid.shape[1],ix.shape[0]),dtype=np.complex64)
         bpg=((H.shape[0]+TPBn-1)//TPBn,(H.shape[1]+TPBn-1)//TPBn)
-        _calculate_H_Tomography[bpg,TPB](r_grid.ravel(ORDER),theta_grid.ravel(ORDER),ix.ravel(ORDER),iy.ravel(ORDER),H)
-        return H.T/self.stdev #Normalized
+        util._calculate_H_Tomography[bpg,TPB](r_grid.ravel(ORDER),theta_grid.ravel(ORDER),ix.ravel(ORDER),iy.ravel(ORDER),H)
+        return H/self.stdev #Normalized
 
-@cuda.jit
-def _calculate_H_Tomography(r,theta,ix,iy,H):
-    """
-    (iX,iY) are meshgrid for Fourier Index
-    (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
-    CUDA kernel function, with cuda jit
-    """
-    # H = np.empty((kx.shape[0],r.shape[0]),dtype=np.complex64)
-    # for m in nb.prange(kx.shape[0]):
-        # for n in nb.prange(r.shape[0]):
-    m,n = cuda.grid(2)
-    
-    sTheta = sin(theta[n])
-    cTheta = cos(theta[n])
-    k_tilde_u = ix[m]*cTheta+iy[m]*sTheta
-    k_tilde_v = -ix[m]*sTheta+iy[m]*cTheta
-    l = sqrt(0.25-r[n]**2)
-    if k_tilde_v != 0:
-        H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
-    else:
-        H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(2*l)
+
     
 
 
@@ -227,10 +206,13 @@ class pCN():
         if not matrix_folder.exists():
             matrix_folder.mkdir()
 
-        if isinstance(self.measurement,TwoDMeasurement):
+        if isinstance(self.measurement,Sinogram):
+            measurement_matrix_file_name = 'radon_matrix_{0}x{1}x{2}-{3}.npz'.format(str(self.fourier.basis_number),str(self.measurement.dim),str(self.measurement.n_theta),ORDER)
+            print('using Tomography Measurement')
+        elif isinstance(self.measurement,TwoDMeasurement):
             measurement_matrix_file_name = 'plain_2D_measurement_matrix_{0}x{1}-{2}.npz'.format(str(self.fourier.basis_number),str(self.measurement.dim),ORDER)
-        elif isinstance(self.measurement,Sinogram):
-            measurement_matrix_file_name = 'radon_matrix_{0}x{1}-{2}.npz'.format(str(self.fourier.basis_number),str(self.measurement.dim),ORDER)
+            print('using TwoDMeasurement')
+        
         self.measurement_matrix_file = matrix_folder/measurement_matrix_file_name
         if not (self.measurement_matrix_file).exists():
             self.H = measurement.get_measurement_matrix(self.fourier.ix.ravel(ORDER),self.fourier.iy.ravel(ORDER))

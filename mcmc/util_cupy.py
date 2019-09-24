@@ -20,6 +20,9 @@ from numba import cuda
 SQRT2 = cp.float32(1.41421356)
 PI = cp.float32(cp.pi)
 
+from numba import cuda
+from cmath import sin,cos,exp,sqrt,pi
+
 #@cupy_profile()
 def construct_w_Half(n):
     wHalf = cp.random.randn(n,dtype=cp.float32)+1j*cp.random.randn(n,dtype=cp.float32)
@@ -341,6 +344,32 @@ def constructH(tx,ty,ix,iy):
         H[i,:] = eigenFunction2D(tx[-i],ty[-i],ix,iy)
     return H
 
+@cuda.jit
+def _calculate_H_Tomography(r,theta,ix,iy,H):
+    """
+    (iX,iY) are meshgrid for Fourier Index
+    (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
+    CUDA kernel function, with cuda jit
+    """
+    m,n = cuda.grid(2)
+    sTheta = sin(theta[m])
+    cTheta = cos(theta[m])
+    k_tilde_u = ix[n]*cTheta+iy[n]*sTheta
+    k_tilde_v = -ix[n]*sTheta+iy[n]*cTheta
+    l = sqrt(0.25-r[m]**2)
+    if k_tilde_v != 0:
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+    else:
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(2*l)
+    # sTheta = sin(theta[n])
+    # cTheta = cos(theta[n])
+    # k_tilde_u = ix[m]*cTheta+iy[m]*sTheta
+    # k_tilde_v = -ix[m]*sTheta+iy[m]*cTheta
+    # l = sqrt(0.25-r[n]**2)
+    # if k_tilde_v != 0:
+    #     H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+    # else:
+    #     H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(2*l)
 
 @cuda.jit
 def matMultiParallel(A,B,C):
@@ -400,6 +429,7 @@ def _save_object(f,obj,end_here=False):
                     for i in range(len(value)):
                         grp = f.create_group(key + ' {0}'.format(i))
                         _save_object(grp,value[i],end_here=True)
-                elif ('pCN' in typeStr) or ('TwoDMeasurement' in typeStr) or ('FourierAnalysis_2D' in typeStr):
+                elif ('pCN' in typeStr) or ('TwoDMeasurement' in typeStr) or ('FourierAnalysis_2D' in typeStr) or ('Sinogram' in typeStr):
                     grp = f.create_group(key)
                     _save_object(grp,value,end_here=True)
+
