@@ -227,7 +227,10 @@ class pCN():
         if not matrix_folder.exists():
             matrix_folder.mkdir()
 
-        measurement_matrix_file_name = 'plain_2D_measurement_matrix_{0}x{1}-{2}.npz'.format(str(self.fourier.basis_number),str(self.measurement.dim),ORDER)
+        if isinstance(self.measurement,TwoDMeasurement):
+            measurement_matrix_file_name = 'plain_2D_measurement_matrix_{0}x{1}-{2}.npz'.format(str(self.fourier.basis_number),str(self.measurement.dim),ORDER)
+        elif isinstance(self.measurement,Sinogram):
+            measurement_matrix_file_name = 'radon_matrix_{0}x{1}-{2}.npz'.format(str(self.fourier.basis_number),str(self.measurement.dim),ORDER)
         self.measurement_matrix_file = matrix_folder/measurement_matrix_file_name
         if not (self.measurement_matrix_file).exists():
             self.H = measurement.get_measurement_matrix(self.fourier.ix.ravel(ORDER),self.fourier.iy.ravel(ORDER))
