@@ -13,12 +13,12 @@ import mcmc.image_cupy as imc
 import pathlib
 
 SimulationResult_dir = pathlib.Path("//data.triton.aalto.fi/work/emzirm1/SimulationResult/")
-SimulationResult_dir = SimulationResult_dir /'result-20-Sep-2019_10_50'
+SimulationResult_dir = SimulationResult_dir /'result-24-Sep-2019_12_08'
 file = h5py.File(str(SimulationResult_dir/'result.hdf5'),mode='r')
 
 samples_history = file['Layers 1/samples_history'][()]
 u_samples_history = file['Layers 0/samples_history'][()]
-meas_std = file['measurement/stdev']
+meas_std = file['measurement/stdev'][()]
 burn_start_index = np.int(0.3*u_samples_history.shape[0])
 u_samples_history = u_samples_history[burn_start_index:,:]
 samples_history = samples_history[burn_start_index:,:]
@@ -36,6 +36,7 @@ corrupted_image = file['measurement/corrupted_image'][()]
 fourier = imc.FourierAnalysis_2D(n,n_ext,t_start,t_end)
 sL2 = util.sigmasLancosTwo(32)
 
+#vF = mean_field.reshape(2*n-1,2*n-1,order=imc.ORDER).T
 vF = mean_field.reshape(2*n-1,2*n-1,order=imc.ORDER).T
 #uF = u_mean_field.reshape(2*n-1,2*n-1,order=imc.ORDER).T
 vForiginal = sL2*util.symmetrize_2D(fourier.fourierTransformHalf(cp.array(target_image)))
