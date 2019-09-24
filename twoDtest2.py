@@ -96,7 +96,7 @@ if __name__=='__main__':
     parser.add_argument('--n',default=2**5,type=int,help='number of Fourier basis, Default=16')
     parser.add_argument('--seed',default=1,type=int,help='random generator seed, Default=1')
     parser.add_argument('--n-extended',default=2**6,type=int,help='number of point per axis, Default=64')
-    parser.add_argument('--n-samples',default=100,type=int,help='number of MCMC samples per computer core, Default=100')
+    parser.add_argument('--n-samples',default=20,type=int,help='number of MCMC samples per computer core, Default=100')
     parser.add_argument('--evaluation-interval',default=5,type=int,help='interval to print and reevaluate beta, Default=5')
     parser.add_argument('--beta',default=1,type=float,help='preconditioned Crank Nicholson beta parameter, Default=1')
     parser.add_argument('--kappa',default=1e17,type=float,help='kappa constant for u_t, Default=1e17')
