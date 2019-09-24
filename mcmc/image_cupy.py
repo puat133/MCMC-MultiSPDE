@@ -15,6 +15,12 @@ import h5py
 from cupy.prof import TimeRangeDecorator as cupy_profile
 ORDER = 'C'
 
+from skimage.transform import radon
+from numba import cuda
+from cmath import sin,cos,exp,sqrt,pi
+TPBn = 32
+TPB = (TPBn,TPBn)
+
 
 class FourierAnalysis_2D:
     def __init__(self,basis_number,extended_basis_number,t_start = 0,t_end=1):
@@ -163,7 +169,49 @@ class TwoDMeasurement:
         H = util.constructH(self.tx,self.ty,ix.ravel(ORDER),iy.ravel(ORDER))
         return H/self.stdev #Normalized
         
-        
+class Sinogram(TwoDMeasurement):
+    def __init__(self,file_name,target_size=128,n_theta=50,stdev=0.1,relative_location=""):
+        super().__init__(file_name,target_size,stdev,relative_location)
+        self.n_theta = n_theta
+        self.theta = np.linspace(0., 180., self.n_theta, endpoint=False)
+        self.n_r = self.dim
+        self.r = np.linspace(-0.5,0.5,self.n_r)
+        self.pure_sinogram = cp.asarray(radon(cp.asnumpy(self.target_image),self.theta,circle=True))
+        self.sinogram = self.pure_sinogram + self.stdev*cp.random.randn(self.pure_sinogram.shape[0],self.pure_sinogram.shape[1])
+        self.y = self.sinogram.ravel(ORDER)/self.stdev
+        self.num_sample = self.y.size
+        self.v = self.pure_sinogram.ravel(ORDER)/self.stdev
+    
+    def get_measurement_matrix(self,ix,iy):
+        theta_grid,r_grid = np.meshgrid(self.theta*np.pi/180,self.r)
+        H = cp.empty((ix.shape[0],r_grid.shape[0]*r_grid.shape[1]),dtype=np.complex64)
+        bpg=((H.shape[0]+TPBn-1)//TPBn,(H.shape[1]+TPBn-1)//TPBn)
+        _calculate_H_Tomography[bpg,TPB](r_grid.ravel(ORDER),theta_grid.ravel(ORDER),ix.ravel(ORDER),iy.ravel(ORDER),H)
+        return H.T/self.stdev #Normalized
+
+@cuda.jit
+def _calculate_H_Tomography(r,theta,ix,iy,H):
+    """
+    (iX,iY) are meshgrid for Fourier Index
+    (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
+    CUDA kernel function, with cuda jit
+    """
+    # H = np.empty((kx.shape[0],r.shape[0]),dtype=np.complex64)
+    # for m in nb.prange(kx.shape[0]):
+        # for n in nb.prange(r.shape[0]):
+    m,n = cuda.grid(2)
+    
+    sTheta = sin(theta[n])
+    cTheta = cos(theta[n])
+    k_tilde_u = ix[m]*cTheta+iy[m]*sTheta
+    k_tilde_v = -ix[m]*sTheta+iy[m]*cTheta
+    l = sqrt(0.25-r[n]**2)
+    if k_tilde_v != 0:
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+    else:
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(2*l)
+    
+
 
 class pCN():
     def __init__(self,n_layers,rg,measurement,f,beta=1,variant="dunlop"):
@@ -447,7 +495,8 @@ class Simulation():
         uStdev[0] /= 2 #scaled
 
         
-        self.measurement = TwoDMeasurement(phantom_name,target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
+        # self.measurement = TwoDMeasurement(phantom_name,target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
+        self.measurement = Sinogram(phantom_name,target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
         self.pcn_variant = pcn_variant
         self.pcn = pCN(n_layers,rg,self.measurement,f,beta,self.pcn_variant)
         # self.pcn_pair_layers = pcn_pair_layers
