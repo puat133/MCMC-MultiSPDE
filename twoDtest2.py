@@ -93,26 +93,30 @@ if __name__=='__main__':
     #                 showFigures=True
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-layers',default=2,type=int,help='number SPDE layers, Default=2')
+    parser.add_argument('--n-theta',default=50,type=int,help='number theta, Default=50')
     parser.add_argument('--n',default=2**5,type=int,help='number of Fourier basis, Default=16')
     parser.add_argument('--seed',default=1,type=int,help='random generator seed, Default=1')
     parser.add_argument('--n-extended',default=2**6,type=int,help='number of point per axis, Default=64')
-    parser.add_argument('--n-samples',default=20,type=int,help='number of MCMC samples per computer core, Default=100')
+    parser.add_argument('--n-samples',default=10,type=int,help='number of MCMC samples per computer core, Default=100')
     parser.add_argument('--evaluation-interval',default=5,type=int,help='interval to print and reevaluate beta, Default=5')
     parser.add_argument('--beta',default=1,type=float,help='preconditioned Crank Nicholson beta parameter, Default=1')
     parser.add_argument('--kappa',default=1e17,type=float,help='kappa constant for u_t, Default=1e17')
     parser.add_argument('--sigma-0',default=1e7,type=float,help='Sigma_u constant, Default=1e7')
     parser.add_argument('--sigma-v',default=1e3,type=float,help='Sigma_v constant, Default=1e3')
+    parser.add_argument('--meas-std',default=0.1,type=float,help='Measurement stdev, Default=0.1')
     parser.add_argument('--sigma-scaling',default=1e-3,type=float,help='Sigma_scaling constant, Default=1e-3')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
     parser.add_argument('--variant',default="dunlop",type=str,help='preconditioned Crank Nicholson multilayered algorithm variant, Default=dunlop')
     parser.add_argument('--phantom-name',default="shepp.png",type=str,help='Phantom name, Default=shepp.png')
+    parser.add_argument('--meas-type',default="tomo",type=str,help='Two D Measurement, Default=tomo')
     ph.add_boolean_argument(parser,'enable-beta-feedback',default=True,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
 
     args = parser.parse_args()
     sim = im.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,n_extended = args.n_extended,beta = args.beta,
-                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,meas_std=0.1,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
-                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant,phantom_name=args.phantom_name)
+                    kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,meas_std=args.meas_std,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
+                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant,phantom_name=args.phantom_name
+                    ,meas_type=args.meas_type,n_theta=args.n_theta)
     
     folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M')
     if 'WRKDIR' in os.environ:

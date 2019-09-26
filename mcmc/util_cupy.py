@@ -70,11 +70,6 @@ def kappaFun(ut):
     """
     kappa function as a function of u in time domain
     """
-    # res = cp.zeros(ut.shape[0],dtype=cp.float64)
-    # for i in nb.prange(ut.shape[0]):
-    #     res[i] = math.exp(-ut[i])
-    # return res
-    # xp = cp.get_array_module(ut)
     return cp.exp(-ut)
 
 
@@ -276,7 +271,6 @@ def irfft2(uHalf2D,num):
    
     uh = cp.fft.ifftshift(uHalfExtended,axes=0)
     uh = cp.fft.irfft2(uh,s=(2*num-1,2*num-1),norm="ortho")
-    # return cp.fft.irfft2(uh,s=(num,num))
     return uh
 
 #@cupy_profile()
@@ -310,12 +304,14 @@ def createUindex(n):
     for i in range(innerlength):
         for j in range(innerlength):
             # if cp.abs(j-i)<n:
-            iX[i*innerlength:(i+1)*innerlength,j*innerlength:(j+1)*innerlength] = (j-i)+(innerlength-1)
+            # iX[i*innerlength:(i+1)*innerlength,j*innerlength:(j+1)*innerlength] = (j-i)+(innerlength-1)
+            iX[i*innerlength:(i+1)*innerlength,j*innerlength:(j+1)*innerlength] = (i-j)+(innerlength-1)
             for k in range(innerlength):
                 for l in range(innerlength):
                     iShift = i*innerlength
                     jShift = j*innerlength
-                    iY[k+iShift,l+jShift] = (k-l)+(innerlength-1)
+                    iY[k+iShift,l+jShift] = (l-k)+(innerlength-1)
+                    # iY[k+iShift,l+jShift] = (k-l)+(innerlength-1)
     
     return (iY,iX)
 
@@ -336,15 +332,12 @@ def constructH(tx,ty,ix,iy):
     (iX,iY) are meshgrid, but ravelled
     (tx,ty) also ravelled meshgrid
     """
-    # H = cp.empty((ix.shape[0],tx.shape[0]),dtype=cp.complex64)
-    # for i in nb.prange(ix.shape[0]):
-    #     H[i,:] = eigenFunction2D(tx,ty,ix[i],iy[i])
     H = cp.empty((tx.shape[0],ix.shape[0]),dtype=cp.complex64)
     for i in range(tx.shape[0]):
         H[i,:] = eigenFunction2D(tx[-i],ty[-i],ix,iy)
     return H
 
-@cuda.jit
+@cuda.jit(nopython=True)
 def _calculate_H_Tomography(r,theta,ix,iy,H):
     """
     (iX,iY) are meshgrid for Fourier Index
@@ -352,15 +345,17 @@ def _calculate_H_Tomography(r,theta,ix,iy,H):
     CUDA kernel function, with cuda jit
     """
     m,n = cuda.grid(2)
+    # n,m = cuda.grid(2)
     sTheta = sin(theta[m])
     cTheta = cos(theta[m])
+    r_m = r[m] #- (0.5*(sTheta+cTheta))#<-- shifting of Radon Transform
     k_tilde_u = ix[n]*cTheta+iy[n]*sTheta
     k_tilde_v = -ix[n]*sTheta+iy[n]*cTheta
-    l = sqrt(0.25-r[m]**2)
+    l = sqrt(0.25-r_m*r_m)
     if k_tilde_v != 0:
-        H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r_m)*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
     else:
-        H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(2*l)
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r_m)*(2*l)
     # sTheta = sin(theta[n])
     # cTheta = cos(theta[n])
     # k_tilde_u = ix[m]*cTheta+iy[m]*sTheta
