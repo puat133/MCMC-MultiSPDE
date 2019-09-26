@@ -12,12 +12,13 @@ import mcmc.util_2D as u2
 import scipy.special as ssp
 import time
 import h5py
+import numba as nb
 from cupy.prof import TimeRangeDecorator as cupy_profile
 ORDER = 'C'
 
 from skimage.transform import radon
 
-TPBn = 32
+TPBn = 1024#4*32
 TPB = (TPBn,TPBn)
 
 
@@ -159,7 +160,7 @@ class TwoDMeasurement:
         self.v = self.target_image.ravel(ORDER)/self.stdev #Normalized
         self.y = self.corrupted_image.ravel(ORDER)/self.stdev #Normalized
         self.num_sample = self.y.size
-        temp = cp.linspace(-0.5,0.5,num=self.dim,endpoint=True)
+        temp = cp.linspace(0.,1.,num=self.dim,endpoint=True)
         ty,tx = cp.meshgrid(temp,temp)
         self.ty = ty.ravel(ORDER)
         self.tx = tx.ravel(ORDER)
@@ -183,9 +184,11 @@ class Sinogram(TwoDMeasurement):
     
     def get_measurement_matrix(self,ix,iy):
         theta_grid,r_grid = np.meshgrid(self.theta*np.pi/180,self.r)
-        H = cp.empty((r_grid.shape[0]*r_grid.shape[1],ix.shape[0]),dtype=np.complex64)
+        # r_grid,theta_grid = np.meshgrid(self.r,self.theta*np.pi/180)
+        H = cp.empty((r_grid.size,ix.size),dtype=np.complex64)
         bpg=((H.shape[0]+TPBn-1)//TPBn,(H.shape[1]+TPBn-1)//TPBn)
-        util._calculate_H_Tomography[bpg,TPB](r_grid.ravel(ORDER),theta_grid.ravel(ORDER),ix.ravel(ORDER),iy.ravel(ORDER),H)
+        print("Block Per Grid is equal to {0}, and H shape is {1}".format(bpg,H.shape))
+        util._calculate_H_Tomography[bpg,TPB](r_grid.ravel(ORDER),theta_grid.ravel(ORDER),ix,iy,H)
         return H/self.stdev #Normalized
 
 
@@ -438,7 +441,7 @@ class Layer():
 
 class Simulation():
     def __init__(self,n_layers,n_samples,n,n_extended,beta,kappa,sigma_0,sigma_v,sigma_scaling,meas_std,evaluation_interval,printProgress,
-                    seed,burn_percentage,enable_beta_feedback,pcn_variant,phantom_name,n_theta=50):
+                    seed,burn_percentage,enable_beta_feedback,pcn_variant,phantom_name,meas_type='tomo',n_theta=50):
         self.n_samples = n_samples
         self.evaluation_interval = evaluation_interval
         self.burn_percentage = burn_percentage
@@ -479,9 +482,11 @@ class Simulation():
         uStdev = uStdev_sym[f.basis_number_2D_ravel-1:]
         uStdev[0] /= 2 #scaled
 
+        if meas_type == 'tomo':
+            self.measurement = Sinogram(phantom_name,target_size=2*f.extended_basis_number-1,n_theta=n_theta,stdev=meas_std,relative_location='phantom_images')
+        else:
+            self.measurement = TwoDMeasurement(phantom_name,target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
         
-        self.measurement = TwoDMeasurement(phantom_name,target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
-        # self.measurement = Sinogram(phantom_name,target_size=2*f.extended_basis_number-1,n_theta=n_theta,stdev=meas_std,relative_location='phantom_images')
         self.pcn_variant = pcn_variant
         self.pcn = pCN(n_layers,rg,self.measurement,f,beta,self.pcn_variant)
         # self.pcn_pair_layers = pcn_pair_layers
