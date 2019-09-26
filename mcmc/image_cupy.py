@@ -18,7 +18,7 @@ ORDER = 'C'
 
 from skimage.transform import radon
 
-TPBn = 1024#4*32
+TPBn = 32#4*32
 TPB = (TPBn,TPBn)
 
 
@@ -167,6 +167,10 @@ class TwoDMeasurement:
     #@cupy_profile()
     def get_measurement_matrix(self,ix,iy):
         H = util.constructH(self.tx,self.ty,ix.ravel(ORDER),iy.ravel(ORDER))
+        # H = cp.empty((self.tx.size,ix.size),dtype=np.complex64)
+        # bpg=((H.shape[0]+TPBn-1)//TPBn,(H.shape[1]+TPBn-1)//TPBn)
+        # print("Block Per Grid is equal to {0}, and H shape is {1}".format(bpg,H.shape))
+        # util._construct_H[bpg,TPB](self.tx.ravel(ORDER),self.ty.ravel(ORDER),ix,iy,H)
         return H/self.stdev #Normalized
         
 class Sinogram(TwoDMeasurement):

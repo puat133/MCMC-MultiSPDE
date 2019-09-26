@@ -337,7 +337,21 @@ def constructH(tx,ty,ix,iy):
         H[i,:] = eigenFunction2D(tx[-i],ty[-i],ix,iy)
     return H
 
-@cuda.jit(nopython=True)
+@cuda.jit()
+def _construct_H(tx,ty,ix,iy,H):
+    """
+    (iX,iY) are meshgrid, but ravelled
+    (tx,ty) also ravelled meshgrid
+    """
+    
+    
+    # H[i,j] = eigenFunction2D(tx[-i],ty[-i],ix,iy)
+    i,j = cuda.grid(2)
+    H[i,j] = exp(1j*2*pi*(ix[j]*tx[i]+iy[j]*ty[i]))
+
+    
+
+@cuda.jit()
 def _calculate_H_Tomography(r,theta,ix,iy,H):
     """
     (iX,iY) are meshgrid for Fourier Index
@@ -345,17 +359,19 @@ def _calculate_H_Tomography(r,theta,ix,iy,H):
     CUDA kernel function, with cuda jit
     """
     m,n = cuda.grid(2)
-    # n,m = cuda.grid(2)
+    
     sTheta = sin(theta[m])
     cTheta = cos(theta[m])
-    r_m = r[m] #- (0.5*(sTheta+cTheta))#<-- shifting of Radon Transform
+     #- (0.5*(sTheta+cTheta))#<-- shifting of Radon Transform
     k_tilde_u = ix[n]*cTheta+iy[n]*sTheta
     k_tilde_v = -ix[n]*sTheta+iy[n]*cTheta
-    l = sqrt(0.25-r_m*r_m)
+    l = sqrt(0.25-r[m]*r[m])
     if k_tilde_v != 0:
-        H[m,n] = exp(1j*2*pi*k_tilde_u*r_m)*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
     else:
-        H[m,n] = exp(1j*2*pi*k_tilde_u*r_m)*(2*l)
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*2*l
+        # H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(2*l) #<-- Suprisingly this does not compile!!!
+
     # sTheta = sin(theta[n])
     # cTheta = cos(theta[n])
     # k_tilde_u = ix[m]*cTheta+iy[m]*sTheta
