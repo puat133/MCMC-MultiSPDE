@@ -4,4 +4,4 @@
 conda init bash
 conda activate CUPYrc
 
-python twoDtest2.py --n-samples=50000 --n=32 --n-extended=64  --phantom-name=shepp.png
+python twoDtest2.py --n-samples=10000 --n=32 --n-extended=64  --n-theta=50 --meas-type=tomo
