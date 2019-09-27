@@ -34,10 +34,18 @@ def post_analysis(input_dir):
     t_end = file['t_end'][()]
     target_image = file['measurement/target_image'][()]
     corrupted_image = file['measurement/corrupted_image'][()]
-    fourier = imc.FourierAnalysis_2D(n,n_ext,t_start,t_end)
-    sL2 = util.sigmasLancosTwo(20)
     
-    vF = mean_field.reshape(2*n-1,2*n-1,order=imc.ORDER).T
+    isSinogram = 'sinogram' in file['measurement'].keys()
+    
+    if isSinogram:
+        sinogram = file['measurement/sinogram'][()]
+        theta = file['measurement/theta'][()]
+        fbp = iradon(sinogram,theta,circle=True);ri_or_n=fbp
+    
+    fourier = imc.FourierAnalysis_2D(n,n_ext,t_start,t_end)
+    sL2 = util.sigmasLancosTwo(32)
+    
+    vF = mean_field.reshape(2*n-1,2*n-1,order=imc.ORDER)
     
     
     
@@ -48,8 +56,8 @@ def post_analysis(input_dir):
     
     reconstructed_image = fourier.inverseFourierLimited(vF[:,n-1:])
     
-    #this happens only in Tomography, to be inspected:
-    reconstructed_image = cp.rot90(cp.fft.fftshift(reconstructed_image),-1)
+#    if isSinogram:
+#        reconstructed_image = cp.rot90(cp.fft.fftshift(reconstructed_image),-1)
     
     reconstructed_image_original = fourier.inverseFourierLimited(vForiginal[:,n-1:])
     scalling_factor = (cp.max(reconstructed_image_original)-cp.min(reconstructed_image_original))/(cp.max(reconstructed_image)-cp.min(reconstructed_image))
@@ -58,25 +66,37 @@ def post_analysis(input_dir):
     u_samples_history_cp = cp.asarray(u_samples_history)
     u_image = cp.zeros_like(reconstructed_image)
     for i in range(N):
-        uF = util.symmetrize(u_samples_history_cp[i,:]).reshape(2*n-1,2*n-1,order=imc.ORDER).T
+        uF = util.symmetrize(u_samples_history_cp[i,:]).reshape(2*n-1,2*n-1,order=imc.ORDER)
         u_image += fourier.inverseFourierLimited(uF[:,n-1:])/N
     
-    u_image = cp.rot90(cp.fft.fftshift(u_image),-1)
+    
+#    if isSinogram:
+#        u_image = cp.rot90(cp.fft.fftshift(u_image),-1) 
+        
     ri_n = cp.asnumpy(reconstructed_image)
     ri_or_n = cp.asnumpy(reconstructed_image_original)
-    ri_n_scalled = ri_n*(np.max(ri_or_n)-np.min(ri_or_n))/(np.max(ri_n)-np.min(ri_n))
+   
+    
+   
+    
+    ri_n_scalled = ri_n*cp.asnumpy(scalling_factor)
     u_n = cp.asnumpy(u_image/(np.max(ri_n)-np.min(ri_n)))
     ell_n =np.exp(u_n)
     fig, ax = plt.subplots(ncols=3,nrows=3,figsize=(15,15))
-    im = ax[0,0].imshow(ri_n_scalled,cmap=plt.cm.Greys_r);ax[0,0].set_title('Reconstructed Image From vF---  RI')
-    im = ax[0,1].imshow(target_image,cmap=plt.cm.Greys_r);ax[0,1].set_title('Target Image ---  TI')
-    im = ax[0,2].imshow(ri_or_n,cmap=plt.cm.Greys_r);ax[0,2].set_title('Reconstructed Image From vFOriginal --- RIO')
-    im = ax[1,0].imshow(np.abs(target_image-ri_n_scalled),cmap=plt.cm.Greys_r);ax[1,0].set_title('Absolute error--- RI-TI')
-    im = ax[1,1].imshow(np.abs(ri_or_n-target_image),cmap=plt.cm.Greys_r);ax[1,1].set_title('Absolute error--- RIO-TI')
-    im = ax[1,2].imshow(np.abs(ri_n_scalled-ri_or_n),cmap=plt.cm.Greys_r);ax[1,2].set_title('Absolute error--- RI-RIO')
-    im = ax[2,0].imshow(u_n,cmap=plt.cm.Greys_r);ax[2,0].set_title('Field u--- u')
-    im = ax[2,1].imshow(ell_n,cmap=plt.cm.Greys_r);ax[2,1].set_title('Length Scale of v--- ell')
+    ax[0,0].imshow(ri_n_scalled,cmap=plt.cm.Greys_r);ax[0,0].set_title('Reconstructed Image From vF---  RI')
+    ax[0,1].imshow(target_image,cmap=plt.cm.Greys_r);ax[0,1].set_title('Target Image ---  TI')
+    if isSinogram:
+        ax[0,2].imshow(fbp,cmap=plt.cm.Greys_r);ax[0,2].set_title('FBP --- RIO')
+    else:
+        ax[0,2].imshow(ri_or_n,cmap=plt.cm.Greys_r);ax[0,2].set_title('Reconstructed Image From vFOriginal --- RIO')
+    
+    ax[1,0].imshow(np.abs(target_image-ri_n_scalled),cmap=plt.cm.Greys_r);ax[1,0].set_title('Absolute error--- RI-TI')
+    ax[1,1].imshow(np.abs(ri_or_n-target_image),cmap=plt.cm.Greys_r);ax[1,1].set_title('Absolute error--- RIO-TI')
+    ax[1,2].imshow(np.abs(ri_n_scalled-ri_or_n),cmap=plt.cm.Greys_r);ax[1,2].set_title('Absolute error--- RI-RIO')
+    ax[2,0].imshow(u_n,cmap=plt.cm.Greys_r);ax[2,0].set_title('Field u--- u')
+    ax[2,1].imshow(ell_n,cmap=plt.cm.Greys_r);ax[2,1].set_title('Length Scale of v--- ell')
     im = ax[2,2].imshow(corrupted_image,cmap=plt.cm.Greys_r);ax[2,2].set_title('Measurement (corrupted_image) --- CI')
+    fig.colorbar(im, ax=ax[:,:], shrink=0.8)
     fig.savefig(str(SimulationResult_dir/'Result.pdf'), bbox_inches='tight')
     for ax_i in ax.flatten():
         extent = ax_i.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
