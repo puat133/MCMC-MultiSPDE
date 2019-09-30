@@ -19,15 +19,15 @@ def post_analysis(input_dir):
     
     samples_history = file['Layers 1/samples_history'][()]
     u_samples_history = file['Layers 0/samples_history'][()]
-    meas_std = file['measurement/stdev'][()]
+#    meas_std = file['measurement/stdev'][()]
     burn_start_index = np.int(0.3*u_samples_history.shape[0])
     u_samples_history = u_samples_history[burn_start_index:,:]
     samples_history = samples_history[burn_start_index:,:]
     N = u_samples_history.shape[0]
     
     mean_field = util.symmetrize(cp.asarray(np.mean(samples_history,axis=0)))
-    u_mean_field = util.symmetrize(cp.asarray(np.mean(u_samples_history,axis=0)))
-    stdev_field = util.symmetrize(cp.asarray(np.std(samples_history,axis=0)))
+#    u_mean_field = util.symmetrize(cp.asarray(np.mean(u_samples_history,axis=0)))
+#    stdev_field = util.symmetrize(cp.asarray(np.std(samples_history,axis=0)))
     n = file['fourier/basis_number'][()]
     n_ext = file['fourier/extended_basis_number'][()]
     t_start = file['t_start'][()]
@@ -40,15 +40,15 @@ def post_analysis(input_dir):
     if isSinogram:
         sinogram = file['measurement/sinogram'][()]
         theta = file['measurement/theta'][()]
-        fbp = iradon(sinogram,theta,circle=True);ri_or_n=fbp
+        fbp = iradon(sinogram,theta,circle=True);
     
     fourier = imc.FourierAnalysis_2D(n,n_ext,t_start,t_end)
-    sL2 = util.sigmasLancosTwo(32)
+    sL2 = util.sigmasLancosTwo(cp.int(n))
     
-    vF = mean_field.reshape(2*n-1,2*n-1,order=imc.ORDER)
+    vF = mean_field.reshape(2*n-1,2*n-1,order=imc.ORDER).T
     
     
-    
+#    if not isSinogram:
     vForiginal = sL2*util.symmetrize_2D(fourier.fourierTransformHalf(cp.array(target_image)))
     
     
@@ -56,8 +56,8 @@ def post_analysis(input_dir):
     
     reconstructed_image = fourier.inverseFourierLimited(vF[:,n-1:])
     
-#    if isSinogram:
-#        reconstructed_image = cp.rot90(cp.fft.fftshift(reconstructed_image),-1)
+    if isSinogram:
+        reconstructed_image = cp.rot90(cp.fft.fftshift(reconstructed_image),-1)
     
     reconstructed_image_original = fourier.inverseFourierLimited(vForiginal[:,n-1:])
     scalling_factor = (cp.max(reconstructed_image_original)-cp.min(reconstructed_image_original))/(cp.max(reconstructed_image)-cp.min(reconstructed_image))
@@ -66,15 +66,18 @@ def post_analysis(input_dir):
     u_samples_history_cp = cp.asarray(u_samples_history)
     u_image = cp.zeros_like(reconstructed_image)
     for i in range(N):
-        uF = util.symmetrize(u_samples_history_cp[i,:]).reshape(2*n-1,2*n-1,order=imc.ORDER)
+        uF = util.symmetrize(u_samples_history_cp[i,:]).reshape(2*n-1,2*n-1,order=imc.ORDER).T
         u_image += fourier.inverseFourierLimited(uF[:,n-1:])/N
     
     
-#    if isSinogram:
-#        u_image = cp.rot90(cp.fft.fftshift(u_image),-1) 
+    if isSinogram:
+        u_image = cp.rot90(cp.fft.fftshift(u_image),-1) 
         
     ri_n = cp.asnumpy(reconstructed_image)
-    ri_or_n = cp.asnumpy(reconstructed_image_original)
+    if isSinogram:
+        ri_or_n=fbp
+    else:
+        ri_or_n = cp.asnumpy(reconstructed_image_original)
    
     
    
@@ -95,7 +98,12 @@ def post_analysis(input_dir):
     ax[1,2].imshow(np.abs(ri_n_scalled-ri_or_n),cmap=plt.cm.Greys_r);ax[1,2].set_title('Absolute error--- RI-RIO')
     ax[2,0].imshow(u_n,cmap=plt.cm.Greys_r);ax[2,0].set_title('Field u--- u')
     ax[2,1].imshow(ell_n,cmap=plt.cm.Greys_r);ax[2,1].set_title('Length Scale of v--- ell')
-    im = ax[2,2].imshow(corrupted_image,cmap=plt.cm.Greys_r);ax[2,2].set_title('Measurement (corrupted_image) --- CI')
+    
+    if isSinogram:
+        im = ax[2,2].imshow(sinogram,cmap=plt.cm.Greys_r);ax[2,2].set_title('Measurement (Sinogram) --- CI')
+    else:
+        im = ax[2,2].imshow(corrupted_image,cmap=plt.cm.Greys_r);ax[2,2].set_title('Measurement (corrupted_image) --- CI')
+    
     fig.colorbar(im, ax=ax[:,:], shrink=0.8)
     fig.savefig(str(SimulationResult_dir/'Result.pdf'), bbox_inches='tight')
     for ax_i in ax.flatten():
