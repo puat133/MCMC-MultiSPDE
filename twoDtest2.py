@@ -103,7 +103,7 @@ if __name__=='__main__':
     parser.add_argument('--kappa',default=1e17,type=float,help='kappa constant for u_t, Default=1e17')
     parser.add_argument('--sigma-0',default=1e7,type=float,help='Sigma_u constant, Default=1e7')
     parser.add_argument('--sigma-v',default=1e3,type=float,help='Sigma_v constant, Default=1e3')
-    parser.add_argument('--meas-std',default=0.1,type=float,help='Measurement stdev, Default=0.1')
+    parser.add_argument('--meas-std',default=0.2,type=float,help='Measurement stdev, Default=0.2')
     parser.add_argument('--sigma-scaling',default=1e-3,type=float,help='Sigma_scaling constant, Default=1e-3')
     parser.add_argument('--burn-percentage',default=25.0,type=float,help='Burn Percentage, Default=25.0')
     parser.add_argument('--variant',default="dunlop",type=str,help='preconditioned Crank Nicholson multilayered algorithm variant, Default=dunlop')

@@ -462,7 +462,7 @@ class Simulation():
         
         
         #setup parameters for 1 Dimensional simulation
-        self.d = 1
+        self.d = 2
         self.nu = 2 - self.d/2
         self.alpha = self.nu + self.d/2
         self.t_start = -0.5
