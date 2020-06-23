@@ -100,7 +100,7 @@ if __name__=='__main__':
                     ,meas_type=args.meas_type,n_theta=args.n_theta,verbose=args.verbose,hybrid_GPU_CPU=args.hybrid)
     #set pcn epsilon for cholesky
     sim.pcn.set_chol_epsilon(args.chol_epsilon)
-    sim.pcn.target_acceptance_rate = 0.5#change acceptance rate to 50%
+    sim.pcn.target_acceptance_rate = 0.234#change acceptance rate to 50%
 
     #only create result folder for the first sequence
     if args.seq_no == 0:    
@@ -109,11 +109,16 @@ if __name__=='__main__':
         folderName = args.init_folder
 
     if 'WRKDIR' in os.environ:
-            simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
+        simResultPath_parent = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'
     elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
-        simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
+        simResultPath_parent = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')
     else:
-        simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+        simResultPath_parent = pathlib.Path.home() / 'Documents' / 'SimulationResult'
+
+    if not simResultPath_parent.exists():
+        simResultPath_parent.mkdir()
+        
+    simResultPath = simResultPath_parent/folderName
     if not simResultPath.exists():
         simResultPath.mkdir()
 
