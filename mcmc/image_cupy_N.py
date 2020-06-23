@@ -18,6 +18,7 @@ import numba as nb
 import cupyx as cpx
 import cupyx.scipy.fftpack as cpxFFT
 from cupy.prof import TimeRangeDecorator as cupy_profile
+from mcmc.extra_linalg import solve_triangular,qr
 ORDER = 'F'
 IN_CPU_LSTSQ = False
 from skimage.transform import radon
@@ -55,13 +56,16 @@ class FourierAnalysis_2D:
         if self.verbose:
             print("Used bytes so far, after creating ix and iy {}".format(mempool.used_bytes()))
         
-        # self.Dmatrix = -(2*util.PI)**2*cp.diag(self.ix.ravel(ORDER)**2+self.iy.ravel(ORDER)**2).astype('int8')
-        self.Dmatrix = cpx.scipy.sparse.diags(-(2*util.PI)**2*(self.ix.ravel(ORDER)**2+self.iy.ravel(ORDER)**2),dtype=cp.float32)
+        
+        self.Ddiag = -(2*util.PI)**2*(self.ix.ravel(ORDER)**2+self.iy.ravel(ORDER)**2)
+        self.OnePerDdiag = 1/self.Ddiag
+        self.Dmatrix = cpx.scipy.sparse.diags(self.Ddiag,dtype=cp.float32)
         if self.verbose:
             print("Used bytes so far, after creating Dmatrix {}".format(mempool.used_bytes()))
 
         # self.Imatrix = cp.eye((2*self.basis_number-1)**2,dtype=cp.int8)
         self.Imatrix = cpx.scipy.sparse.identity((2*self.basis_number-1)**2,dtype=cp.float32)
+        self.Imatrix_dense = cp.eye((2*self.basis_number-1)**2,dtype=cp.float32)
         if self.verbose:
             print("Used bytes so far, after creating Imatrix {}".format(mempool.used_bytes()))
 
@@ -79,28 +83,7 @@ class FourierAnalysis_2D:
         x = np.concatenate((np.arange(self.basis_number)+1,np.zeros(self.basis_number-1)))
         toep = sla.toeplitz(x)
         self._Umask = cp.asarray(np.kron(toep,toep),dtype=cp.int16)
-
-        # temp = u2.createUindex(self.basis_number)
-        # iY = cp.asarray(temp[0],dtype=cp.int8)
-        # iX = cp.asarray(temp[1],dtype=cp.int8)
-        # if self.verbose:
-            # print("Used bytes so far, after creating iY and iY {}".format(mempool.used_bytes()))
-        # Index = (iY,iX)
-        # self.Index = Index
-        # if self.verbose:
-            # print("Used bytes so far, after creating Index {}".format(mempool.used_bytes()))
-        # del temp
-        # del Index
-        # del iY
-        # del iX
-    #@cupy_profile()
-    # def inverseFourierLimited(self,uHalf2D):   
-    #    return util.irfft2(uHalf2D,self.extended_basis_number)
         
-    # #@cupy_profile()
-    # def fourierTransformHalf(self,z):
-    #     return util.rfft2(z,self.basis_number)
-
     def rfft2(self,z):
         m = z.shape[0]
         if self._plan_fft2 is None:
@@ -159,9 +142,9 @@ class Lmatrix_2D:
         self.sqrt_beta = sqrt_beta
 
         #initialize self.lastComputedL as zero
-        # self.current_L = cp.zeros((self.fourier.basis_number_2D_sym,self.fourier.basis_number_2D_sym),dtype=cp.complex64)
-        self.current_L = None
-        self.latest_computed_L = self.current_L
+        # self.current = cp.zeros((self.fourier.basis_number_2D_sym,self.fourier.basis_number_2D_sym),dtype=cp.complex64)
+        self.current = None
+        self.latest_computed = self.current
         
     #@cupy_profile()
     def construct_from_2D(self,uHalf2D,hybrid=False):
@@ -171,7 +154,7 @@ class Lmatrix_2D:
             Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
             # Ku_pow_min_nu = self.fourier.constructMat(uHalf2D,1)
             # Ku_pow_d_per_2 = self.fourier.constructMat(uHalf2D,-1)
-            L = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_d_per_2)/self.sqrt_beta
+            L = ( Ku_pow_min_nu*self.fourier.Ddiag - Ku_pow_d_per_2)/self.sqrt_beta
         else:
             #mode ngirit
             temp = -self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
@@ -186,7 +169,7 @@ class Lmatrix_2D:
             cp._default_memory_pool.free_all_blocks()
 
             L =  cp.asarray(temp_cp)
-        self.latest_computed_L = L
+        self.latest_computed = L
         return L
     
     """
@@ -201,7 +184,7 @@ class Lmatrix_2D:
         if not hybrid:
             Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu,m)
             Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2,m)
-            dL = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) + Ku_pow_d_per_2)/self.sqrt_beta #<-- here using plus sign
+            dL = ( Ku_pow_min_nu*self.fourier.Ddiag + Ku_pow_d_per_2)/self.sqrt_beta #<-- here using plus sign
         else:
             #mode ngirit
             temp = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2,m) #<-- here using plus sign
@@ -235,18 +218,56 @@ class Lmatrix_2D:
         # L^dagger L is Hermitian
         """
         if new:
-            return (cp.linalg.slogdet(self.latest_computed_L)[1])
+            return (cp.linalg.slogdet(self.latest_computed)[1])
         else:
-            return (cp.linalg.slogdet(self.current_L)[1])
+            return (cp.linalg.slogdet(self.current)[1])
 
     #@cupy_profile()
-    def set_current_L_to_latest(self):
-        self.current_L = self.latest_computed_L
+    def set_current_to_latest(self):
+        self.current = self.latest_computed
         
     #@cupy_profile()
-    def is_current_L_equals_to_the_latest(self):
-        return cp.all(self.current_L == self.latest_computed_L)
+    def is_current_equals_to_latest(self):
+        return cp.all(self.current == self.latest_computed)
 
+'''
+N is L_inverse,
+and propagating N perhaps cheaper than propagating L
+Nmatrix class inherit Lmatrix class, except from the construct_from_2D
+'''
+class Nmatrix_2D(Lmatrix_2D):
+    def construct_from_2D(self,uHalf2D,hybrid=False):
+        assert uHalf2D.shape[1] == self.fourier.basis_number
+        if not hybrid:
+            Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu)
+            Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
+            L = (Ku_pow_min_nu*self.fourier.Ddiag - Ku_pow_d_per_2)/self.sqrt_beta            
+            N = (cp.linalg.solve(L,self.fourier.Imatrix_dense))
+        else:
+            N = None #TODO: to be implemented
+        self.latest_computed = N
+        return N
+
+    def construct_derivative_from_2D(self,uHalf2D,m,hybrid=False):
+        assert uHalf2D.shape[1] == self.fourier.basis_number
+        if not hybrid:
+            Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu,m)
+            Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2,m)            
+            N = ( Ku_pow_min_nu - self.fourier.self.OnePerDdiag*Ku_pow_d_per_2)*self.sqrt_beta
+        else:
+            #mode ngirit
+            temp = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu,m)*self.sqrt_beta
+            temp_cp = cp.asnumpy(temp)
+            del temp
+            cp._default_memory_pool.free_all_blocks()
+            temp = self.fourier.self.OnePerDdiag*(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2))*self.sqrt_beta
+            temp_cp -= cp.asnumpy(temp)             
+            del temp
+            cp._default_memory_pool.free_all_blocks()
+
+            N =  cp.asarray(temp_cp)
+        self.latest_computed = N
+        return N
 
 class RandomGenerator_2D:
     def __init__(self,basis_number):
@@ -255,8 +276,9 @@ class RandomGenerator_2D:
         self.basis_number_2D_ravel = (2*basis_number*basis_number-2*basis_number+1)
         self.sqrt2 = util.SQRT2
     #@cupy_profile()
-    def construct_w_Half_2D(self):
-        return util.construct_w_Half_2D(self.basis_number)
+    # def construct_w_Half_2D(self):
+    #     return util.construct_w_Half_2D(self.basis_number)
+
     #@cupy_profile()
     def construct_w_Half(self):
         return util.construct_w_Half(self.basis_number_2D_ravel)
@@ -270,10 +292,7 @@ class RandomGenerator_2D:
         w = cp.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
         # w = cp.zeros(2*w_half.shape[0]-1,dtype=cp.complex64)
         return w
-    
-        # def construct_w_2D_ravelled(self):
-    #     return util.construct_w_2D_ravelled(self.basis_number)
-    #@cupy_profile()
+
     def symmetrize_2D(self,uHalf2D):
         return util.symmetrize_2D(uHalf2D)
 
@@ -368,11 +387,7 @@ class Sinogram(TwoDMeasurement):
         self.v = self.pure_sinogram.ravel(ORDER)/self.stdev
 
 
-
-    
-
-
-class pCN():
+class vanilla_pCN():
     def __init__(self,n_layers,rg,measurement,f,beta=1,variant="dunlop",verbose=True,hybrid_mode=False,mempool=None):
         self.n_layers = n_layers
         self.beta = cp.float32(beta)
@@ -403,28 +418,22 @@ class pCN():
             print("Used bytes so far, after creating H {}".format(mempool.used_bytes()))
         # self.H_t_H = self.H.conj().T@self.H
         self.H_t_H /= self.meas_var
-        # self.I = cp.eye(self.measurement.num_sample,dtype=cp.float32)
-        self.I = cpx.scipy.sparse.identity(self.measurement.num_sample)
-        self.In = cpx.scipy.sparse.identity(self.fourier.basis_number_2D_sym)
+        self.I = cp.eye(self.measurement.num_sample,dtype=cp.float32)
+        self.In = cp.eye(self.fourier.basis_number_2D_sym,dtype=cp.float32)
+        # self.I = cpx.scipy.sparse.identity(self.measurement.num_sample)
+        # self.In = cpx.scipy.sparse.identity(self.fourier.basis_number_2D_sym)
         
         self.y = self.measurement.y
         self.yBar = cp.concatenate((self.y,cp.zeros(2*self.fourier.basis_number_2D_ravel-1)))
 
-        self.y_ = cp.asnumpy(self.y)
-        self.yBar_ = cp.asnumpy(self.yBar)
 
-        
-        
-    
-        self.aggresiveness = 0.2
-        self.target_acceptance_rate = 0.234
         self.beta_feedback_gain = 2.1
+        self.target_acceptance_rate = 0.234
         self.record_skip = 1
         self.record_count = 0
         self.max_record_history = 1000000
 
-        self.Layers_sqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)      
-    
+
     def reset_chol_stabilizer(self):
         self.cholesky_stabilizer = self.epsilon*cp.linalg.norm(self.H_t_H)
 
@@ -460,7 +469,7 @@ class pCN():
             temp2 = self.H.conj().T@self.H
             self.H_t_H = 0.5*(temp2+temp2.conj().T)#.real
             cp.savez_compressed(self.measurement_matrix_file,H=self.H.astype(cp.complex64),H_t_H=self.H_t_H.astype(cp.complex64)) #<-- save non normalized version
-        self.reset_chol_stabilizer()
+        
         
 
     def load_H_matrix(self):
@@ -476,91 +485,81 @@ class pCN():
                     self.H_t_H = data['H_t_H']
                 else:
                     self.H_t_H = self.H.conj().T@self.H
-        self.reset_chol_stabilizer()
+        
         
 
     #@cupy_profile()
     def adapt_beta(self,current_acceptance_rate):
         self.set_beta(self.beta*cp.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
-    #@cupy_profile()
-    def more_aggresive(self):
-        self.set_beta(cp.min(cp.array([(1+self.aggresiveness)*self.beta,1],dtype=cp.float32)))
-    #@cupy_profile() 
-    def less_aggresive(self):
-        self.set_beta(cp.min(cp.array([(1-self.aggresiveness)*self.beta,1e-10],dtype=cp.float32)))
+
     #@cupy_profile()
     def set_beta(self,newBeta):
         if 1e-7<newBeta<1:
             self.beta = newBeta.astype(cp.float32)
             self.betaZ = cp.sqrt(1-newBeta**2).astype(cp.float32)
     
-    def one_step_default(self,Layers):      
-        accepted = 0
-        logRatio = 0.0
-        Layers[self.n_layers-1].sample_non_centered()
-        wNew = Layers[self.n_layers-1].new_noise_sample
-        eNew = cp.random.randn(self.measurement.num_sample)
-        wBar = cp.concatenate((eNew,wNew))
-        LBar = cp.vstack((self.H,Layers[self.n_layers-1].LMat.current_L))
-        v, _, _, _ = util.lstsq(LBar,self.yBar-wBar )#,rcond=None)
-        Layers[self.n_layers-1].new_sample_sym = v
-        Layers[self.n_layers-1].new_sample = v[self.fourier.basis_number_2D_ravel-1:]
-        
-        for i in range(self.n_layers):
-            #We dont need to take sample for i=n_layers-1
-            if i<self.n_layers-1:
-                Layers[i].sample_non_centered()
-                if i>0:
-                    Layers[i].LMat.construct_from(Layers[i-1].new_sample)
-                    if i<self.n_layers-1:
-                        Layers[i].new_sample_sym = cp.linalg.solve(Layers[i].LMat.latest_computed_L,Layers[i].new_noise_sample)
-                else:
-                    Layers[i].new_sample_sym = Layers[i].stdev_sym*Layers[i].new_noise_sample
-                Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
-
-            if i == self.n_layers-1:
-                logRatio += Layers[i].LMat.logDet(True) - Layers[i].LMat.logDet(False)
-                logRatio += 0.5*(util.norm2(Layers[i].LMat.current_L@v)-util.norm2(Layers[i].LMat.latest_computed_L@v))
-            if i<self.n_layers-1:
-                logRatio += 0.5*(util.norm2(Layers[i].current_noise_sample) - util.norm2(Layers[i].new_noise_sample))
-        if logRatio>cp.log(cp.random.rand()):
-            accepted = 1
-            for i in range(self.n_layers):
-                Layers[i].update_current_sample()
-                if i<self.n_layers-1 and not Layers[i+1].is_stationary:
-                    Layers[i+1].LMat.set_current_L_to_latest()
-
-            # only record when needed
-        if (self.record_count%self.record_skip) == 0:
-            # print('recorded')
-            for i in range(self.n_layers):
-                Layers[i].record_sample()
+    def one_step(self,Layers):      
         self.record_count += 1
+        return 1
+    
 
-        return accepted
+'''
+dunlop pCN implementation with Layers
+'''
+class dunlop_pCN(vanilla_pCN):
+    def __init__(self,n_layers,rg,measurement,f,beta=1,verbose=True,mempool=None):
+        super().__init__(n_layers,rg,measurement,f,beta=beta,variant="dunlop",verbose=verbose,hybrid_mode=False,mempool=mempool)
+        self.__using_NMatrix = False
+        self._log_ratio = self._log_ratio_L
+        self.Ht = self.H.conj().T
 
-    ##@cupy_profile()    
-    def one_step_non_centered_dunlop(self,Layers):
+
+    def use_NMatrix(self,useit=False):
+        self.__using_NMatrix = useit
+        if self.__using_NMatrix:
+            self._log_ratio = self._log_ratio_N
+
+
+    def isusing_NMatrix(self):
+        return self.__using_NMatrix
+
+    #Log ratio if using L matrix
+    def _log_ratio_L(self,L):
+        # temp = L.conj().T@L
+        # epsilon is added to make sure that cholesky factorization working
+        # r = 0.5*(temp+temp.conj().T) + self.H_t_H + self.cholesky_stabilizer*self.In
+        # c = cp.linalg.cholesky(r)
+        # Ht = cp.linalg.solve(c.astype(cp.complex64),self.H.conj().T)
+        # Q_inv = self.I - (Ht.conj().T@Ht)
+        # logRatio = 0.5*(self.y@Q_inv@self.y - cp.linalg.slogdet(Q_inv/self.meas_var)[1])     
+
+        LinvHt = cp.linalg.solve(L.conj().T,self.Ht)
+        Q = (LinvHt.conj().T@LinvHt+self.I).real
+        logRatio = 0.5*(self.y@cp.linalg.solve(Q,self.y) + cp.linalg.slogdet(Q*self.meas_var)[1])
+        return logRatio
+
+    #log ratio if using N Matrix
+    def _log_ratio_N(self,N):
+        HN = self.H@N
+        Q = (HN@HN.conj().T+self.I)
+        yQy = self.y@(cp.linalg.solve(Q,self.y))
+        logRatio = 0.5*(yQy.real + cp.linalg.slogdet(Q*self.meas_var)[1])
+        return logRatio
+
+    def one_step(self,Layers):      
         accepted = 0
         logRatio = 0.0
         for i in range(self.n_layers-1):
             Layers[i].sample_non_centered()
             if i>0:
-                Layers[i].LMat.construct_from(Layers[i-1].new_sample_sym,self.hybrid_mode)
-                Layers[i].new_sample_sym = cp.linalg.solve(Layers[i].LMat.latest_computed_L,Layers[i].new_noise_sample)
-            else:
-                Layers[i].new_sample_sym = Layers[i].stdev_sym*Layers[i].new_noise_sample
+                Layers[i].Mat.construct_from(Layers[i-1].new_sample_sym)
+
+            Layers[i].new_sample_sym = Layers[i].centralize_sample(True)
             Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
         
-        # y = self.measurement.yt
-        L = Layers[-1].LMat.current_L
+        logRatio = self._log_ratio(Layers[-1].Mat.current)
 
-        logRatio = self._log_ratio(L)
-
-        L = Layers[-1].LMat.construct_from(Layers[-2].new_sample_sym,self.hybrid_mode)
-
-
-        logRatio -= self._log_ratio(L)
+        logRatio -= self._log_ratio(Layers[-1].Mat.construct_from(Layers[-2].new_sample_sym))
                     
         if logRatio>cp.log(cp.random.rand()):
             accepted = 1
@@ -570,23 +569,16 @@ class pCN():
             eNew = cp.random.randn(self.measurement.num_sample)
             wBar = cp.concatenate((eNew,wNew))
 
-            xp = cp.get_array_module(self.H)
-            if xp == np:
-                LBar = xp.vstack(( self.H,cp.asnumpy(Layers[-1].LMat.current_L)))
-                v_, res, rnk, s = xp.linalg.lstsq(LBar, cp.asnumpy(self.yBar-wBar),rcond=-1)
-                vHalf_ = v_[cp.asnumpy(self.fourier.basis_number_2D_ravel)-1:]
-                Layers[-1].new_sample_sym = cp.asarray(v_)
-                Layers[-1].new_sample = cp.asarray(vHalf_)
-            else:
-                LBar = cp.vstack((self.H,Layers[-1].LMat.latest_computed_L))
-                v, res, rnk, s = util.lstsq(LBar,self.yBar-wBar ,in_cpu=IN_CPU_LSTSQ)#,rcond=None)
-                Layers[-1].new_sample_sym = v
-                Layers[-1].new_sample = v[self.fourier.basis_number_2D_ravel-1:]
+        
+            HBar = Layers[-1].obtain_HBar(True)
+            v, res, rnk, s = util.lstsq(HBar,self.yBar-wBar ,in_cpu=IN_CPU_LSTSQ)
+            Layers[-1].new_sample_sym = v
+            Layers[-1].new_sample = v[self.fourier.basis_number_2D_ravel-1:]
 
             for i in range(self.n_layers):
                 Layers[i].update_current_sample()
                 if not Layers[i].is_stationary:
-                    Layers[i].LMat.set_current_L_to_latest()
+                    Layers[i].Mat.set_current_to_latest()
 
         # self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
@@ -595,105 +587,11 @@ class pCN():
                 Layers[i].record_sample()
 
         self.record_count += 1
-
         return accepted
-    
-    def _log_ratio(self,L):
-        
-        # del L <-dont delete L
-        # r = temp.real + self.H_t_H
-        if self.hybrid_mode:
-            L_ = cp.asnumpy(L)
-            temp = L_.conj().T@L_
-            
-            r = temp + self.H_t_H + self.cholesky_stabilizer*self.In
-            # r = temp + self.H_t_H
-
-            # r = 0.5*(temp+temp.conj().T) + self.H_t_H
-            # del temp
-            
-            c = np.linalg.cholesky(r)
-            # del r
-
-            Ht = np.linalg.solve(c.astype(np.complex64),self.H.conj().T)
-            # del c
-            
-            Q_inv = self.I.get() - (Ht.conj().T@Ht)
-            # del Ht
-            
-            logRatio = 0.5*(self.y_@Q_inv@self.y_ - np.linalg.slogdet(Q_inv/self.meas_var)[1])
-            # del R_inv
-
-            logRatio = cp.asarray(logRatio)
-            
-        else:
-            temp = L.conj().T@L
-            #epsilon is added to make sure that cholesky factorization working
-            
-            r = temp + self.H_t_H + self.cholesky_stabilizer*self.In
-            # r = 0.5*(temp+temp.conj().T) + self.H_t_H
-            del temp
-            cp._default_memory_pool.free_all_blocks()
-
-            c = cp.linalg.cholesky(r)
-            del r
-            cp._default_memory_pool.free_all_blocks()
-
-            Ht = cp.linalg.solve(c.astype(cp.complex64),self.H.conj().T)
-            del c
-            cp._default_memory_pool.free_all_blocks()
-
-            Q_inv = self.I - (Ht.conj().T@Ht)
-            del Ht
-            cp._default_memory_pool.free_all_blocks()
-
-            logRatio = 0.5*(self.y@Q_inv@self.y - cp.linalg.slogdet(Q_inv/self.meas_var)[1])
-            
-            del Q_inv
-            cp._default_memory_pool.free_all_blocks()
-
-        return logRatio
 
 
-    ##@cupy_profile()
-    def one_step_for_sqrtBetas(self,Layers):
-        sqrt_beta_noises = self.stdev_sqrtBetas*cp.random.randn(self.n_layers)
-        propSqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)
 
-        for i in range(self.n_layers):
-            
-            temp = cp.sqrt(1-self.pcn_step_sqrtBetas**2)*Layers[i].sqrt_beta + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
-            propSqrtBetas[i] = max(temp,1e-4)
-            if i==0:
-                stdev_sym_temp = (propSqrtBetas[i]/Layers[i].sqrt_beta)*Layers[i].stdev_sym
-                Layers[i].new_sample_sym = stdev_sym_temp*Layers[i].current_noise_sample
-            else:
-                Layers[i].LMat.construct_from_with_sqrt_beta(Layers[i-1].new_sample,propSqrtBetas[i])
-                if i < self.n_layers-1:
-                    Layers[i].new_sample_sym = cp.linalg.solve(Layers[i].LMat.latest_computed_L,Layers[i].current_noise_sample)
-                else:        
-                    wNew = Layers[-1].current_noise_sample
-                    eNew = cp.random.randn(self.measurement.num_sample)
-                    wBar = cp.concatenate((eNew,wNew))
-                    LBar = cp.vstack((self.H,Layers[-1].LMat.latest_computed_L))
-                    v, res, rnk, s = util.lstsq(LBar,self.yBar-wBar,in_cpu=IN_CPU_LSTSQ )
-                    Layers[-1].new_sample_sym = v
-                    Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
 
-        logRatio = 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].current_sample_sym))
-        logRatio -= 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].new_sample_sym))
-
-        if logRatio>cp.log(cp.random.rand()):
-            # print('Proposal sqrt_beta accepted!')
-            self.Layers_sqrtBetas = propSqrtBetas
-            for i in range(self.n_layers):
-                Layers[i].sqrt_beta = propSqrtBetas[i]
-                Layers[i].LMat.set_current_L_to_latest()
-                if Layers[i].is_stationary:
-                    Layers[i].stdev_sym = stdev_sym_temp
-                    Layers[i].stdev = Layers[i].stdev_sym[self.fourier.basis_number_2D_ravel-1:]
-
-    
 
 """
 Sample in this Layer object is always one complex dimensional vector
@@ -701,6 +599,14 @@ It is the job of Fourier object to convert it to 2D object
 """
 class Layer():
     def __init__(self,is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample_sym):
+        self.preinit(is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample_sym)
+        self.Mat = Lmatrix_2D(self.pcn.fourier,self.sqrt_beta)
+        self.initialize_sample(init_sample_sym)
+
+        # self.update_current_sample()
+        
+
+    def preinit(self,is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample_sym):
         self.is_stationary = is_stationary
         self.sqrt_beta = sqrt_beta
         self.order_number = order_number
@@ -713,12 +619,29 @@ class Layer():
         self.stdev = ones_compl_dummy
         self.stdev_sym = util.symmetrize(self.stdev)
         self.samples_history = np.empty((self.n_samples, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
-    
-        self.LMat = Lmatrix_2D(self.pcn.fourier,self.sqrt_beta)
         self.current_noise_sample = self.pcn.random_gen.construct_w()#noise sample always symmetric
         self.new_noise_sample = self.current_noise_sample.copy()
+        self.i_record = 0
+
         
-        
+
+    def centralize_sample(self,latest=False):
+        if self.order_number == 0:
+            return self.stdev_sym*self.new_noise_sample
+        else:
+            if not latest:
+                return cp.linalg.solve(self.Mat.current,self.new_noise_sample)
+            else:
+                return cp.linalg.solve(self.Mat.latest_computed,self.new_noise_sample)
+
+    def obtain_HBar(self,latest=False):
+        if not latest:
+            return cp.vstack((self.pcn.H,self.Mat.current))
+        else:
+            return cp.vstack((self.pcn.H,self.Mat.latest_computed))
+
+
+    def initialize_sample(self,init_sample_sym):
         if self.is_stationary:
             self.new_sample_sym = init_sample_sym 
             self.new_sample = init_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
@@ -726,47 +649,25 @@ class Layer():
             self.current_sample_sym = self.new_sample_sym.copy()
             
             self.new_sample_scaled_norm = 0
-            self.new_log_L_det = 0
+            self.new_log_Mat_det = 0
             #numba need this initialization. otherwise it will not compile
             self.current_sample_scaled_norm = 0
-            self.current_log_L_det = 0
+            self.current_log_Mat_det = 0
 
         else:
             init_sample = init_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
-            self.LMat.construct_from(init_sample_sym,self.pcn.hybrid_mode)
-            self.LMat.set_current_L_to_latest()
-            self.new_sample_sym = cp.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
+            self.Mat.construct_from(init_sample_sym,self.pcn.hybrid_mode)
+            self.Mat.set_current_to_latest()
+            self.sample_non_centered()
+            self.new_sample_sym = self.centralize_sample()#cp.linalg.solve(self.Mat.current,self.pcn.random_gen.construct_w())
             self.new_sample = self.new_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
-            self.new_sample_scaled_norm = util.norm2(self.LMat.current_L@self.new_sample_sym)#ToDO: Modify this
-            self.new_log_L_det = self.LMat.logDet(True)#ToDO: Modify this
-            # #numba need this initialization. otherwise it will not compile
+            self.new_sample_scaled_norm = util.norm2(self.Mat.current@self.new_sample_sym)#ToDO: Modify this
+            self.new_log_Mat_det = self.Mat.logDet(True)#ToDO: Modify this
+            
             self.current_sample = init_sample.copy()
             self.current_sample_sym = self.new_sample_sym.copy()
             self.current_sample_scaled_norm = self.new_sample_scaled_norm
-            self.current_log_L_det = self.new_log_L_det   
-            
-        # self.update_current_sample()
-        self.i_record = 0
-
-    #@cupy_profile()
-    def sample(self):
-        #if it is the last layer
-        if self.order_number == self.pcn.n_layers -1:
-            wNew = self.pcn.random_gen.construct_w()
-            eNew = cp.random.randn(self.pcn.measurement.num_sample)
-            wBar = cp.concatenate((eNew,wNew))
-            
-            LBar = cp.vstack((self.pcn.H,self.LMat.current_L))
-
-            #update v
-            self.new_sample_sym, res, rnk, s = util.lstsq(LBar,self.pcn.yBar-wBar,in_cpu=IN_CPU_LSTSQ )#,rcond=None)
-            self.new_sample = self.new_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
-            # return new_sample
-        elif self.order_number == 0:
-            self.new_sample = self.pcn.betaZ*self.current_sample + self.pcn.beta*self.stdev*self.pcn.random_gen.construct_w_half()
-        else:
-            self.new_sample_sym = self.pcn.betaZ*self.current_sample_sym + self.pcn.beta*cp.linalg.solve(self.LMat.current_L,self.pcn.random_gen.construct_w())
-            self.new_sample = self.new_sample_sym[self.pcn.fourier.basis_number_2D_ravel-1:]
+            self.current_log_Mat_det = self.new_log_Mat_det
             
     #@cupy_profile()
     def sample_non_centered(self):
@@ -781,13 +682,47 @@ class Layer():
         self.current_sample = self.new_sample.copy()
         self.current_sample_sym = self.new_sample_sym.copy()
         self.current_sample_scaled_norm = self.new_sample_scaled_norm
-        self.current_log_L_det = self.new_log_L_det
+        self.current_log_Mat_det = self.new_log_Mat_det
         self.current_noise_sample = self.new_noise_sample.copy()      
+
+
+'''
+Layer inheritance, where Layer Matrix is now Nmatrix_2D
+'''
+class NLayer(Layer):
+    def __init__(self,is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample_sym):
+        self.preinit(is_stationary,sqrt_beta,order_number,n_samples,pcn,init_sample_sym)
+        self.Mat = Nmatrix_2D(self.pcn.fourier,self.sqrt_beta)
+        self.initialize_sample(init_sample_sym)
+
+    #this is what differ with normal layer
+    def centralize_sample(self,non_centered_sample_sym,latest=False):
+        if self.order_number == 0:
+            return self.stdev_sym*non_centered_sample_sym
+        else:
+            if not latest:
+                return self.Mat.current@non_centered_sample_sym
+            else:
+                return self.Mat.latest_computed@non_centered_sample_sym
+        
+
+    def obtain_HBar(self,latest=False):
+        if not latest:
+            return cp.vstack((self.pcn.H,cp.linalg.solve(self.Mat.current,self.pcn.fourier.Imatrix_dense)))
+        else:
+            return cp.vstack((self.pcn.H,cp.linalg.solve(self.Mat.latest_computed,self.pcn.fourier.Imatrix_dense)))
+
+        
+        
+
+    
+            
 
 
 class Simulation():
     def __init__(self,n_layers,n_samples,n,n_extended,beta,kappa,sigma_0,sigma_v,sigma_scaling,meas_std,evaluation_interval,printProgress,
-                    seed,burn_percentage,enable_beta_feedback,pcn_variant,phantom_name,meas_type='tomo',n_theta=50,verbose=False,hybrid_GPU_CPU=False):
+                    seed,burn_percentage,enable_beta_feedback,pcn_variant,phantom_name,meas_type='tomo',
+                    n_theta=50,verbose=False,hybrid_GPU_CPU=False,use_NMatrix=False,use_max_H=False):
         self.n_samples = n_samples
         self.evaluation_interval = evaluation_interval
         self.burn_percentage = burn_percentage
@@ -811,7 +746,7 @@ class Simulation():
         cp.cuda.set_allocator(self.mempool.malloc)
         
         #setup parameters for 2 Dimensional simulation
-        # self.d = 1#<-- TODO: Modify this!!
+        
         self.d = 2
         self.nu = 2 - self.d/2
         self.alpha = self.nu + self.d/2
@@ -821,7 +756,8 @@ class Simulation():
         self.beta_v = self.beta_u*(sigma_v/sigma_0)**2
         self.sqrtBeta_v = cp.sqrt(self.beta_v).astype('float32')
         self.sqrtBeta_0 = cp.sqrt(self.beta_u).astype('float32')
-        self._one_step = None
+        self.use_NMatrix = use_NMatrix
+        self.use_max_H = use_max_H
 
         
         # pinned_mempool = cp.get_default_pinned_memory_pool()
@@ -841,77 +777,71 @@ class Simulation():
             print("Used bytes so far, after creating RandomGenerator_2D {}".format(self.mempool.used_bytes()))
         
 
-        # Lu = ((f.Dmatrix*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*f.Imatrix)*(1/self.sqrtBeta_0)).astype('float32')
-        Lu_diag = ((f.Dmatrix.diagonal()*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*f.Imatrix.diagonal())/self.sqrtBeta_0).astype('float32')
-        Lu = cpx.scipy.sparse.diags(Lu_diag,dtype=cp.float32)
         
-        # del LuReal
-
-        if self.verbose:
-            print("Used bytes so far, after creating Lu {}".format(self.mempool.used_bytes()))
+        Lu_diag = ((f.Dmatrix.diagonal()*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*f.Imatrix.diagonal())/self.sqrtBeta_0).astype('float32')
         
         # uStdev_sym = -1/cp.diag(Lu)
         uStdev_sym = -1/Lu_diag
         uStdev = uStdev_sym[f.basis_number_2D_ravel-1:]
         uStdev[0] /= 2 #scaled
 
+        if self.use_max_H:
+            target_size = 511
+        else:
+            target_size = 2*f.extended_basis_number-1
+
         if meas_type == 'tomo':
-            self.measurement = Sinogram(phantom_name,target_size=2*f.extended_basis_number-1,n_theta=n_theta,stdev=meas_std,relative_location='phantom_images')
+            self.measurement = Sinogram(phantom_name,target_size=target_size,n_theta=n_theta,stdev=meas_std,relative_location='phantom_images')
             self.measurement.use_skimage = False
         else:
-            self.measurement = TwoDMeasurement(phantom_name,target_size=2*f.extended_basis_number-1,stdev=meas_std,relative_location='phantom_images')
+            self.measurement = TwoDMeasurement(phantom_name,target_size=target_size,stdev=meas_std,relative_location='phantom_images')
         
         if self.verbose:
             print("Used bytes so far, after creating measurement {}".format(self.mempool.used_bytes()))
 
         self.pcn_variant = pcn_variant
-        self.pcn = pCN(n_layers,rg,self.measurement,f,beta,self.pcn_variant,verbose=self.verbose,hybrid_mode=self.hybrid,mempool=self.mempool)
+        self.pcn = dunlop_pCN(n_layers,rg,self.measurement,f,beta,verbose=self.verbose,mempool=self.mempool) #TODO:This is BAD
+        self.pcn.use_NMatrix(self.use_NMatrix)
         if self.verbose:
             print("Used bytes so far, after creating pCN {}".format(self.mempool.used_bytes()))
-        # self.pcn_pair_layers = pcn_pair_layers
-        
         
         
         self.pcn.record_skip = np.max(cp.array([1,self.n_samples//self.pcn.max_record_history]))
         history_length = np.min(np.array([self.n_samples,self.pcn.max_record_history])) 
-        self.pcn.sqrtBetas_history = np.empty((history_length, self.n_layers), dtype=np.float64)
+        
+
         Layers = []
         for i in range(self.n_layers):
             if i==0:
                 init_sample_sym = uStdev_sym*self.pcn.random_gen.construct_w()
-                lay = Layer(True, self.sqrtBeta_0,i, n_samples, self.pcn,init_sample_sym)
-                lay.LMat.current_L = Lu
-                lay.LMat.latest_computed_L = Lu
+                if self.pcn.isusing_NMatrix():
+                    lay = NLayer(True, self.sqrtBeta_0,i, n_samples, self.pcn,init_sample_sym)
+                else:
+                    lay = Layer(True, self.sqrtBeta_0,i, n_samples, self.pcn,init_sample_sym)
+                lay.Mat.current = None
+                lay.Mat.latest_computed = None
                 lay.stdev_sym = uStdev_sym
                 lay.stdev = uStdev
-            else:
-                if i == n_layers-1:
-                    lay = Layer(False, self.sqrtBeta_v,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
-                    wNew =  self.pcn.random_gen.construct_w()
-                    eNew = cp.random.randn(self.pcn.measurement.num_sample,dtype=cp.float32)
-                    wBar = cp.concatenate((eNew,wNew))
-                    #
-                    xp = cp.get_array_module(self.pcn.H)
-                    
-                    if xp == np:
-                        LBar = xp.vstack(( self.pcn.H,cp.asnumpy(lay.LMat.current_L)))
-                        current_sample_sym_, res, rnk, s = xp.linalg.lstsq(LBar, cp.asnumpy(self.pcn.yBar-wBar),rcond=-1)
-                        current_sample_ = current_sample_sym_[cp.asnumpy(f.basis_number_2D_ravel)-1:]
-                        lay.current_sample_sym = cp.asarray(current_sample_sym_)
-                        lay.current_sample = cp.asarray(current_sample_)
-                    else:
-                        LBar = xp.vstack(( self.pcn.H,lay.LMat.current_L))
-                        lay.current_sample_sym, res, rnk, s = util.lstsq(LBar, self.pcn.yBar-wBar)#,rcond=None)
-                        lay.current_sample = lay.current_sample_sym[f.basis_number_2D_ravel-1:]
-
-                    
-                    
+            elif i == n_layers-1:
+                if self.pcn.isusing_NMatrix():
+                    lay = NLayer(False, self.sqrtBeta_v,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
                 else:
-                    # lay = layer.Layer(False, sqrtBeta_v*np.sqrt(sigma_scaling),i, n_samples, pcn,Layers[i-1].current_sample)
-                    lay = Layer(False, self.sqrtBeta_v*0.1,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
+                    lay = Layer(False, self.sqrtBeta_v,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
+                
+                wNew =  self.pcn.random_gen.construct_w()
+                eNew = cp.random.randn(self.pcn.measurement.num_sample,dtype=cp.float32)
+                wBar = cp.concatenate((eNew,wNew))
+                
+                
+                HBar = lay.obtain_HBar()
+                lay.current_sample_sym, res, rnk, s = util.lstsq(HBar, self.pcn.yBar-wBar)#,rcond=None)
+                lay.current_sample = lay.current_sample_sym[f.basis_number_2D_ravel-1:]
+                    
+            else:
+                lay = Layer(False, self.sqrtBeta_v*self.sigma_scaling,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
 
             lay.update_current_sample()
-            self.pcn.Layers_sqrtBetas[i] = lay.sqrt_beta
+            
             lay.samples_history = np.empty((history_length, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
             Layers.append(lay)
             if self.verbose:
@@ -932,14 +862,11 @@ class Simulation():
         
         accepted_count_partial = 0
         linalg_error_occured = False
-        if self.pcn_variant == 'dunlop':
-            self._one_step = self.pcn.one_step_non_centered_dunlop
-        else:
-            self._one_step = self.pcn.one_step_default
+        
 
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
-                accepted_count_partial += self._one_step(self.Layers)
+                accepted_count_partial += self.pcn.one_step(self.Layers)
             except np.linalg.LinAlgError as err:
                 linalg_error_occured = True
                 print("Linear Algebra Error :",err)
@@ -975,9 +902,9 @@ class Simulation():
                 print('Linear algebra errors occured during some simulation step(s). The simulation result may not be valid')
         else:
             elapsedTimeStr = time.strftime("%j day(s),%H:%M:%S", time.gmtime(time.time()-start_time))
-            self.total_time = time.time()-start_time
-            if self.printProgress:
-                util.printProgressBar(self.n_samples, self.n_samples, 'Iteration Completed in {0}- Acceptance Rate {1:.2%} - Progress:'.format(elapsedTimeStr,self.acceptancePercentage), suffix = 'Complete', length = 50)
+        self.total_time = time.time()-start_time
+        if self.printProgress:
+            util.printProgressBar(self.n_samples, self.n_samples, 'Iteration Completed in {0}- Acceptance Rate {1:.2%} - Progress:'.format(elapsedTimeStr,self.acceptancePercentage), suffix = 'Complete', length = 50)
     
 
     def save(self,file_name,include_history=False):
@@ -985,32 +912,3 @@ class Simulation():
             util._save_object(f,self)
 
 
-# """ Future plan
-# This is an abstract class
-# Layer class will implement all methods in this class
-# """
-# class LayerBase(object):
-#     __metaclass__ = abc.ABCMeta
-
-    
-#     """
-#     Sample from this layer
-#     """
-#     @abc.abstractmethod
-#     def sample(self):
-#         return
-    
-    
-#     """
-#     record sample to samples_history
-#     """
-#     @abc.abstractmethod
-#     def record_sample(self):
-#         return
-
-#     """
-#     update current sample to a new value
-#     """
-#     @abc.abstractmethod
-#     def update_current_sample(self):
-#         return

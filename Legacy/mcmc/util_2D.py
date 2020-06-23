@@ -143,8 +143,8 @@ def createUindex(n):
     innerlength = (2*n-1)
     length = innerlength**2
     shape = (length,length)
-    iX = np.zeros(shape,dtype=np.int8)
-    iY = np.zeros(shape,dtype=np.int8)
+    iX = np.zeros(shape,dtype=np.int64)*(innerlength-1)
+    iY = np.zeros(shape,dtype=np.int64)*(innerlength-1)
     for i in range(innerlength):
         for j in range(innerlength):
             # if np.abs(j-i)<n:

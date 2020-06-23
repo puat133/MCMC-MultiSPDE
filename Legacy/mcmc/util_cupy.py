@@ -12,23 +12,17 @@ import scipy.linalg as sla
 import numba as nb
 import cupy as cp
 import time
-import gc
+import math
 import mcmc.image_cupy as im
 import h5py
-from skimage.transform import radon
 from cupy.prof import TimeRangeDecorator as cupy_profile
 from numba import cuda
 SQRT2 = cp.float32(1.41421356)
 PI = cp.float32(cp.pi)
-TPBn = 8#4*32
-TPB = (TPBn,TPBn)
-import mcmc.util as u_nb
 
 from numba import cuda
-from math import sin,cos,sqrt,pi
-from cmath import exp
-from mcmc.extra_linalg import solve_triangular,qr
-import cupyx as cpx
+from cmath import sin,cos,exp,sqrt,pi
+
 #@cupy_profile()
 def construct_w_Half(n):
     wHalf = cp.random.randn(n,dtype=cp.float32)+1j*cp.random.randn(n,dtype=cp.float32)
@@ -55,44 +49,20 @@ def eigenFunction1D(i,t):
 #@cupy_profile()
 def matMulti(A,D):
     """
-    Matrix multiplication A@D where A is herimitian matrix, and D is a diagonal matrix
+    Matrix multiplication A@D where A,D is a diagonal matrices, and D is a diagonal matrix
     """
     return A@D
 
-def matMulti_sparse(A,D):
-    """
-    Matrix multiplication A@D where A is herimitian matrix, and D is a sparse diagonal matrix
-    """
-    C = cp.zeros_like(A,dtype=A.dtype)
-    diag_D = D.diagonal()
-    bpg=((A.shape[0]+TPBn-1)//TPBn,(A.shape[1]+TPBn-1)//TPBn)
-    _matMulti_sparse[bpg,TPB](A,diag_D,C)
-    # for i in range(A.shape[0]):
-    #     for j in range(A.shape[1]):
-    #         C[i,j] = A[i,j]*diag_D[j]
-    return C
-
-@cuda.jit()
-def _matMulti_sparse(A,diag_D,C):
-    i,j = cuda.grid(2)
-    if i < C.shape[0] and j < C.shape[1]:
-        C[i,j] = A[i,j]*diag_D[j]
-
-def slogdet(L):
-    """
-    # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues
-    # L^dagger L is Hermitian
-    # cupy slogdet seems cannot handle complex matrix
-    """
-    cp.linalg.slogdet(L)
-    
-    temp = L.conj().T@L
-    temp = 0.5*(temp+temp.conj().T)
-    res =  0.5*cp.sum(cp.log(cp.linalg.eigvalsh(temp)))
-    del temp
-    cp._default_memory_pool.free_all_blocks()
-    return res,0
-
+# 
+# def logDet(L):
+#     """
+#     # The determinant of a Hermitian matrix is real;the determinant is the product of the matrix's eigenvalues
+#     # L^dagger L is Hermitian
+#     """
+#     return (cp.linalg.slogdet(L)[1])
+#     # return 0.5*(cp.linalg.slogdet(L.T.conj()@L)[1])
+#     # return 0.5*cp.sum(cp.log(cp.linalg.eigvalsh(L.T.conj()@L)))
+#     # return  cp.sum(cp.log(cp.absolute(cp.linalg.eigvals(L))))
 
 # @nb.vectorize([nb.float64(nb.float64)],cache=CACHE,nopython=True)
 #@cupy_profile()
@@ -178,12 +148,12 @@ def updateWelford(existingAggregate, newValue):
 
 def finalizeWelford(existingAggregate):
     (count, mean, M2) = existingAggregate
-    (mean, variance, sampleVariance) = (mean, M2/count, M2/(count - 1)) 
-    # (mean, variance) = (mean, M2/count) 
+    # (mean, variance, sampleVariance) = (mean, M2/count, M2/(count - 1)) 
+    (mean, variance) = (mean, M2/count) 
     # if count < 2:
         # return float('nan')
     # else:
-    return (mean, variance,sampleVariance)
+    return (mean, variance)
 
 #@cupy_profile()
 def extend(uSymmetric,num):
@@ -270,14 +240,14 @@ def kappa_pow_min_nu(u):
     """
     for d=2, and alpha =2 nu = 1
     """
-    return cp.exp(u)#1/kappaFun(u)
+    return 1/kappaFun(u)
 
 #@cupy_profile()
 def kappa_pow_d_per_2(u):
     """
     for d=2, and d/2 = 1
     """
-    return cp.exp(-u)#kappaFun(u)
+    return kappaFun(u)
     
 #@cupy_profile()
 def rfft2(z,n):
@@ -310,34 +280,12 @@ def constructU(uHalf2D,index):
     res = extend2D(symmetrize_2D(uHalf2D),2*n-1)[index]
     return res
 
-def constructU_cuda(uHalf2D):
-    n = uHalf2D.shape[1]
-    innerlength = 2*n-1
-    length = innerlength**2
-    U = cp.zeros((length,length),dtype=cp.complex64)
-    bpg = ((U.shape[0]+TPBn-1)//TPBn,(U.shape[1]+TPBn-1)//TPBn)
-    _construct_U[bpg,TPB](symmetrize_2D(uHalf2D),n,innerlength,U)
-    return U
-
-def constructU_from_uSym2D_cuda(uSym2D):
-    innerlength = uSym2D.shape[0]
-    n = (innerlength+1)//2
-    length = innerlength**2
-    U = cp.zeros((length,length),dtype=cp.complex64)
-    bpg = ((U.shape[0]+TPBn-1)//TPBn,(U.shape[1]+TPBn-1)//TPBn)
-    _construct_U[bpg,TPB](uSym2D,n,innerlength,U)
-    return U
-
+    
 #@cupy_profile()
 def constructMatexplicit(uHalf2D,fun,num,index):
     temp = fun(irfft2(uHalf2D,num))
     temp2 = rfft2(temp,uHalf2D.shape[1])
     return constructU(temp2,index)
-
-def constructMatexplicit_cuda(uHalf2D,fun,num):
-    temp = fun(irfft2(uHalf2D,num))
-    temp2 = rfft2(temp,uHalf2D.shape[1])
-    return constructU_cuda(temp2)
 
 #@cupy_profile()
 def constructLexplicit(uHalf2D,D,num,sqrtBeta,index):
@@ -370,22 +318,18 @@ def createUindex(n):
     innerlength = (2*n-1)
     length = innerlength**2
     shape = (length,length)
-    iX = cp.zeros(shape,dtype=cp.int8)#*(innerlength-1)
-    iY = cp.zeros(shape,dtype=cp.int8)#*(innerlength-1)
+    iX = cp.zeros(shape,dtype=cp.int32)#*(innerlength-1)
+    iY = cp.zeros(shape,dtype=cp.int32)#*(innerlength-1)
     for i in range(innerlength):
         for j in range(innerlength):
-            iShift = i*innerlength
-            jShift = j*innerlength
-            # iY[i*innerlength:(i+1)*innerlength,j*innerlength:(j+1)*innerlength] = (i-j)+(innerlength-1)#innerlength-1 adalah shiftnya jadi innerlength-1 itu nol
-            iY[iShift:iShift+innerlength,jShifth:jShift+innerlength] = (i-j)+(innerlength-1)#innerlength-1 adalah shiftnya jadi innerlength-1 itu nol
+            iX[i*innerlength:(i+1)*innerlength,j*innerlength:(j+1)*innerlength] = (i-j)+(innerlength-1)#innerlength-1 adalah shiftnya jadi innerlength-1 itu nol
             for k in range(innerlength):
                 for l in range(innerlength):
-                    # iShift = i*innerlength
-                    # jShift = j*innerlength
-                    iX[k+iShift,l+jShift] = (k-l)+(innerlength-1)
+                    iShift = i*innerlength
+                    jShift = j*innerlength
+                    iY[k+iShift,l+jShift] = (k-l)+(innerlength-1)
     
-    return (iY,iX)#because iY is row index, iX is column index
-    # return (iX,iY)#because iY is row index, iX is column index
+    return (iX,iY)
 #@cupy_profile()
 def eigenFunction2D(tx,ty,kx,ky):
     """
@@ -421,26 +365,8 @@ def _construct_H(tx,ty,ix,iy,H):
     i,j = cuda.grid(2)
     H[i,j] = exp(1j*2*pi*(ix[j]*tx[i]+iy[j]*ty[i]))
 
-
-@cuda.jit()
-def _construct_U(uSym2D,N,innerlength,U):
-    '''CUDA kernel for constructing U matrix from uSym2D
-    '''
-    m,n = cuda.grid(2)
-    if m < U.shape[0] and n < U.shape[1]:
-        i = m//innerlength
-        j = n//innerlength
-        k = m%innerlength
-        l = n%innerlength
-        delta_IJ = (i-j)
-        delta_KL = (k-l)
-
-        if -(N-1)<=delta_IJ < N:
-            if -(N-1)<=delta_KL < N:
-                U[m,n] = uSym2D[delta_KL+(N-1),delta_IJ+(N-1)] #<-- this is correct already!!
-                # U[m,n] = uSym2D[delta_IJ+(N-1),delta_KL+(N-1)] #<-- this is correct already!!
     
-          
+
 @cuda.jit()
 def _calculate_H_Tomography(r,theta,ix,iy,H):
     """
@@ -449,86 +375,40 @@ def _calculate_H_Tomography(r,theta,ix,iy,H):
     CUDA kernel function, with cuda jit
     """
     m,n = cuda.grid(2)
-    if m < H.shape[0] and n < H.shape[1]:
-        
-        
-        # theta_m = theta[m]
-        theta_m = theta[-(m+1)]+0.5*pi
-        sTheta = sin(theta_m)
-        cTheta = cos(theta_m)
-        r_m = r[m]
-            
-        kx = ix[n]
-        ky = iy[n]
-        k_tilde_u = kx*cTheta+ky*sTheta
-        k_tilde_v = -kx*sTheta+ky*cTheta
-        l = sqrt(0.25-r_m*r_m)
-        if k_tilde_v*k_tilde_v > 0.0:
-            H[m,n] =  exp(1j*pi*((kx+ky)-2*k_tilde_v*r_m))*(sin(2*pi*k_tilde_u*l))/(pi*k_tilde_u)
-        else:
-            H[m,n] =  exp(1j*pi*((kx+ky)-2*k_tilde_v*r_m))*(2*l)
+    sTheta = sin(theta[m])
+    cTheta = cos(theta[m])
+    r_m = r[m]# - (0.5*(cTheta+sTheta))
+    k_tilde_u = ix[n]*cTheta+iy[n]*sTheta
+    k_tilde_v = -ix[n]*sTheta+iy[n]*cTheta
+    l = sqrt(0.25-r_m*r_m)
+    if k_tilde_v != 0:
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r_m)*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+        # H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+    else:
+        H[m,n] = exp(1j*2*pi*k_tilde_u*r_m)*(2*l) #<-- Suprisingly this does not compile,For teslaV100!!! 
+        # H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(2*l) #<-- Suprisingly this does not compile,For teslaV100!!! 
 
-# # ASELI untuk 180 derajat sesuai buku NETTER
-@cuda.jit()
-def _calculate_H_Tomography_DEANS(r,theta,ix,iy,H):
+    # sTheta = sin(theta[n])
+    # cTheta = cos(theta[n])
+    # k_tilde_u = ix[m]*cTheta+iy[m]*sTheta
+    # k_tilde_v = -ix[m]*sTheta+iy[m]*cTheta
+    # l = sqrt(0.25-r[n]**2)
+    # if k_tilde_v != 0:
+    #     H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
+    # else:
+    #     H[m,n] = exp(1j*2*pi*k_tilde_u*r[n])*(2*l)
+
+@cuda.jit
+def matMultiParallel(A,B,C):
     """
-    (iX,iY) are meshgrid for Fourier Index
-    (tx,ty) also ravelled meshgrid for original location grid (0 to 1)
-    CUDA kernel function, with cuda jit
+    CUDA Kernel to do matrix multiplication where
+    A, D are square matrices of same shape
+    and D is a diagonal matrix
     """
-    m,n = cuda.grid(2)
-    if m < H.shape[0] and n < H.shape[1]:
-        
-        
-        theta_m = theta[m]
-        # theta_m = theta[-(m+1)]
-        sTheta = sin(theta_m)
-        cTheta = cos(theta_m)
-        r_m = r[m]
-            
-        kx = ix[n]
-        ky = iy[n]
-        k_tilde_u = kx*cTheta+ky*sTheta
-        k_tilde_v = -kx*sTheta+ky*cTheta
-        l = sqrt(0.25-r_m*r_m)
-        if k_tilde_v*k_tilde_v > 0.0:
-            H[m,n] =  exp(1j*pi*((kx+ky)+2*k_tilde_u*r_m))*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
-        else:
-            H[m,n] =  exp(1j*pi*((kx+ky)+2*k_tilde_u*r_m))*(2*l)
+    i, j = cuda.grid(2)
+    if i<A.shape[0] and j<A.shape[1]:
+        C[i,j] = A[i,j]*B[j,j]
 
-def calculate_H_Tomography_skimage(theta,ix,iy,H,image_size):
-    temp = np.linspace(0.,1.,num=image_size,endpoint=True)
-    # extended_base_number = (image_size+1)//2
-    tx,ty = np.meshgrid(temp,temp)
-    mask = ((tx-0.5)**2+(ty-0.5)**2 > 0.25)
-    for k,ix_now,iy_now in zip(range(ix.shape[0]),ix,iy):
-        phi_image = np.exp(1j*2*cp.pi*(ix_now*tx+iy_now*ty))
-        phi_image[mask] = 0
-        rad = radon(phi_image.real,theta=theta,circle=True)+1j*radon(phi_image.imag,theta=theta,circle=True)
-        H[:,k] = rad.ravel()
-    H /= image_size
-
-def norm2(x):
-    return cp.sum(x*x.conj()).real
-
-# @nb.jit(target='cuda')
-# def calculate_H_Tomography(r,theta,ix,iy,H):
-#     for m in range(H.shape[0]):
-#         for n in range(H.shape[1]):            
-#             sTheta = sin(theta[m])
-#             cTheta = cos(theta[m])
-#             r_m = r[m] #+ (0.5*(cTheta+sTheta))
-#             kx = ix[n]
-#             ky = iy[n]
-#             k_tilde_u = kx*cTheta+ky*sTheta
-#             k_tilde_v = -kx*sTheta+ky*cTheta
-#             l = sqrt(0.25-r_m*r_m)
-#             if k_tilde_v != 0:
-#                 H[m,n] = exp(1j*PI*(kx+ky))*exp(1j*2*PI*k_tilde_u*r_m)*(sin(2*PI*k_tilde_v*l))/(PI*k_tilde_v)
-#                 # H[m,n] = exp(1j*2*pi*k_tilde_u*r[m])*(sin(2*pi*k_tilde_v*l))/(pi*k_tilde_v)
-#             else:
-#                 H[m,n] = exp(1j*PI*(kx+ky))*exp(1j*2*PI*k_tilde_u*r_m)*(2*l) #<-- Suprisingly this does not compile,For teslaV100!!! 
-    
 #@cupy_profile()
 def sigmasLancosTwo(n):
     """
@@ -550,13 +430,12 @@ f is either h5py.File or h5py.group
 this will save simulation object recursively
 """            
 def _save_object(f,obj,end_here=False):
-    excluded_matrix = ['H','Ht','I','In','H_t_H','Imatrix','Dmatrix','ix','iy','y','ybar']
     for key,value in obj.__dict__.items():
         if isinstance(value,int) or isinstance(value,float) or isinstance(value,str) or isinstance(value,bool):
             f.create_dataset(key,data=value)
             continue
         elif isinstance(value,cp.core.core.ndarray):
-            if key in excluded_matrix:
+            if key == 'H' or  key == 'I' or key =='H_t_H' or key == 'Dmatrix' or key == 'Imatrix' or key == 'ix' or key =='iy':#do not save again H and H_t_H
                 continue
             else:
                 if value.ndim >0:
@@ -581,105 +460,3 @@ def _save_object(f,obj,end_here=False):
                     grp = f.create_group(key)
                     _save_object(grp,value,end_here=True)
 
-
-"""
-There is a bug in cupy lstsq, so that it gives solution to the complex problem is 
-the complex conjugate of the actual solution (obtained by numpy for comparison)
-"""
-def lstsq(a, b, rcond=1e-15,in_cpu=False):
-    # x, resids, rank, s = cp.linalg.lstsq(a,b,rcond)
-    # return x.conj(),resids,rank,s
-
-    
-
-    if not in_cpu:
-        # u, s, vt = cp.linalg.svd(a, full_matrices=False)
-        # # number of singular values and matrix rank
-        # cutoff = rcond * s.max()
-        # s1 = 1 / s
-        # sing_vals = s <= cutoff
-        # s1[sing_vals] = 0
-        # # Solve the least-squares solution
-        # z = u.conj().T@b*s1
-        # x = vt.conj().T@z
-
-        # Some basic instinct without a proper svd selection. <-- I think this is an exact solution. 
-        # Sometimes not going well
-        # a_t = a.T.conj()
-        # x = cp.linalg.solve(a_t@a,a_t@b)
-
-        #do traditional way using QR factorization
-        # #1. compute QR factorization of a
-        q,r = qr(a) #
-
-        # # #2. multiply q.conj().T x b
-        d = q.conj().T@b
-
-        # # #solve rx=d <-- this should be solved using solve_triangular
-        x = solve_triangular(r,d)# 
-        return x,0,0,0
-    else:
-        x,m,n,o = np.linalg.lstsq(cp.asnumpy(a),cp.asnumpy(b),rcond=rcond)
-        return cp.asarray(x),m,n,o
-
-
-    
-"""
-delete variable from memory
-"""
-def remove_var(x):
-    del x
-    cp._default_memory_pool.free_all_blocks()
-
-def shift_2D(uSym,k):
-    result = cp.zeros_like(uSym)
-    #only do shifting if k is one dimensional
-    if k.ndim == 1:
-        if k[0]> 0:
-            if k[1]> 0:
-                result[k[0]:,k[1]:] = uSym[:-k[0],:-k[1]]
-            elif k[1]< 0:
-                result[k[0]:,:k[1]] = uSym[:-k[0],-k[1]:]
-            else:
-                result[k[0]:,:] = uSym[:-k[0],:]
-
-        elif k[0]< 0:
-            if k[1]> 0:
-                result[:k[0],k[1]:] = uSym[-k[0]:,:-k[1]]
-            elif k[1]< 0:
-                result[:k[0],:k[1]] = uSym[-k[0]:,-k[1]:]
-            else:
-                result[:k[0],:] = uSym[-k[0]:,:]
-        else:
-            if k[1]> 0:
-                result[:,k[1]:] = uSym[:,:-k[1]]
-            elif k[1]< 0:
-                result[:,:k[1]] = uSym[:,-k[1]:]
-            else:
-                result = uSym
-    return result
-
-
-def expm(A,delta=1e-10):
-    j = max(0,cp.int(1+cp.log2(cp.linalg.norm(A,cp.inf))))
-    A = A/(2**j)
-    q = u_nb.expm_eps_less_than(delta)
-    n = A.shape[0]
-    I = cp.eye(n)
-    D = I
-    N = I
-    X = I
-    c = 1
-    sign = 1
-    for k in range(1,q+1):
-        c = c*(q-k+1)/((2*q - k+ 1)*k)
-        X = A@X
-        N = N + c*X
-        sign = -1*sign
-        D = D + sign*c*X
-    
-    F = cp.linalg.solve(D,N)
-    for _ in range(j):
-        F = F@F
-    
-    return F

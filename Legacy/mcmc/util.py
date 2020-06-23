@@ -12,7 +12,6 @@ import scipy.linalg as sla
 import numba as nb
 import time
 import math
-# import cupyx as cpx
 FASTMATH=True
 PARALLEL = False
 CACHE=True
@@ -60,51 +59,6 @@ def matMulti(A,D):
             C[i,j] = A[i,j]*D[j,j]
 
     return C
-
-
-@njitSerial
-def shift_1D(uSym, k):
-        result = np.zeros_like(uSym)
-        if k > 0:
-            result[k:] = uSym[:-k]
-        elif k < 0:
-            result[:k] = uSym[-k:]
-        else:
-            result = uSym
-        return result
-
-"""
-shift 2D array uSym [k0,k1] to the right, 
-and fill the gap with fill value
-"""
-@njitSerial
-def shift_2D(uSym,k):
-    result = np.zeros_like(uSym)
-    #only do shifting if k is one dimensional
-    if k.ndim == 1:
-        if k[0]> 0:
-            if k[1]> 0:
-                result[k[0]:,k[1]:] = uSym[:-k[0],:-k[1]]
-            elif k[1]< 0:
-                result[k[0]:,:k[1]] = uSym[:-k[0],-k[1]:]
-            else:
-                result[k[0]:,:] = uSym[:-k[0],:]
-
-        elif k[0]< 0:
-            if k[1]> 0:
-                result[:k[0],k[1]:] = uSym[-k[0]:,:-k[1]]
-            elif k[1]< 0:
-                result[:k[0],:k[1]] = uSym[-k[0]:,-k[1]:]
-            else:
-                result[:k[0],:] = uSym[-k[0]:,:]
-        else:
-            if k[1]> 0:
-                result[:,k[1]:] = uSym[:,:-k[1]]
-            elif k[1]< 0:
-                result[:,:k[1]] = uSym[:,-k[1]:]
-            else:
-                result = uSym
-    return result
 
 # @njitParallel
 # def logDet(L):
@@ -227,131 +181,75 @@ def symmetrize(w_half):
     w = np.concatenate((w_half[:0:-1].conj(),w_half)) #symmetrize
     return w
 
-# Implementation of epsilon equation in page 531, section 9.3 with q=p
-@njitSerial
-def _expm_epsilon(p):
-    pFac = _factorial(p)
-    two_pFac = _factorial(2*p)
-    pfrac = (pFac/two_pFac)
-    res = (8/(2**(2*p)))*(pfrac*pfrac)/(2*p+1)
-    return res
-
-@njitParallel
-def _factorial(p):
-    if p>0:
-        res = p
-        for i in nb.prange(1,p):
-            res *=i
-    else:
-        res = 1
-    return res
-
-@njitSerial
-def expm_eps_less_than(delta):
-    epsilon = 8
-    p = 0
-    while epsilon>delta:
-        p +=1
-        epsilon /= (2**4)*(2*p+3)*(2*p+1)
+def kaczmarz(A,b,max_iteration):
+    m = A.shape[0]
+    n = A.shape[1]
+    if m != b.shape[0]:
+        raise Exception("Matrix and vector size missmatch")
     
-    return p
-
-@njitParallel
-def expm(A,delta):
-    j = max(0,np.int(1+np.log2(np.linalg.norm(A,np.inf))))
-    A = A/(2**j)
-    q = expm_eps_less_than(delta)
-    # print(q)
-    n = A.shape[0]
-    I = np.eye(n)
-    D = I
-    N = I
-    X = I
-    c = 1
-    sign = 1
-    for k in range(1,q+1):
-        c = c*(q-k+1)/((2*q - k+ 1)*k)
-        X = A@X
-        N = N + c*X
-        sign = sign* -1
-        D = D + sign*c*X
-    
-    F = np.linalg.solve(D,N)
-    for _ in range(j):
-        F = F@F
-    
-    return F
-
-
-# def kaczmarz(A,b,max_iteration):
-#     m = A.shape[0]
-#     n = A.shape[1]
-#     if m != b.shape[0]:
-#         raise Exception("Matrix and vector size missmatch")
-    
-#     #set initial condition:
-#     x = np.zeros(n,dtype=np.complex128)
-#     #computing probability of each row
-#     # prob_row = np.zeros(m,dtype=np.float64)
-#     A_row_squared_norm = np.zeros(m,dtype=np.float64)
-#     # A_normalized = A
-#     for i in nb.prange(m):
-#         A_row_squared_norm[i] = norm2(A[i,:])
-#         #in_place_normalization
-#         A[i,:] = A[i,:]/np.sqrt(A_row_squared_norm[i])
-#         b[i] = b[i]/np.sqrt(A_row_squared_norm[i])
+    #set initial condition:
+    x = np.zeros(n,dtype=np.complex128)
+    #computing probability of each row
+    # prob_row = np.zeros(m,dtype=np.float64)
+    A_row_squared_norm = np.zeros(m,dtype=np.float64)
+    # A_normalized = A
+    for i in nb.prange(m):
+        A_row_squared_norm[i] = norm2(A[i,:])
+        #in_place_normalization
+        A[i,:] = A[i,:]/np.sqrt(A_row_squared_norm[i])
+        b[i] = b[i]/np.sqrt(A_row_squared_norm[i])
             
-#     # prob_row = A_row_squared_norm/np.sum(A_row_squared_norm)
-#     # cum_prob_row = np.zeros(m+1,dtype=np.float64)
-#     # cum_prob_row[0] = prob_row[0]
-#     # for i in nb.prange(1,m):
-#         # cum_prob_row[i] = cum_prob_row[i-1]+prob_row[i-1]
+    # prob_row = A_row_squared_norm/np.sum(A_row_squared_norm)
+    # cum_prob_row = np.zeros(m+1,dtype=np.float64)
+    # cum_prob_row[0] = prob_row[0]
+    # for i in nb.prange(1,m):
+        # cum_prob_row[i] = cum_prob_row[i-1]+prob_row[i-1]
         
-#     # error = norm2(A@x - b)
-#     # while(error>tolerance):
-#     for k in nb.prange(max_iteration):
-#         i = k%m
-#         # i = get_random_index(cum_prob_row,np.random.rand(),m)
-#         x = x + (b[i] - inner(A[i,:],x.conj()) )*A[i,:]
-#         # error = norm2(A@x - b)
-#         # print('error = {0}, i = {1}'.format(error,i))
-#     error = norm2(A@x - b)
-#     return x,error
+    # error = norm2(A@x - b)
+    # while(error>tolerance):
+    for k in nb.prange(max_iteration):
+        i = k%m
+        # i = get_random_index(cum_prob_row,np.random.rand(),m)
+        x = x + (b[i] - inner(A[i,:],x.conj()) )*A[i,:]
+        # error = norm2(A@x - b)
+        # print('error = {0}, i = {1}'.format(error,i))
+    error = norm2(A@x - b)
+    return x,error
 
-# # @njitParallel
-# def random_kaczmarz(A,b,max_iteration):
-#     m = A.shape[0]
-#     n = A.shape[1]
-#     if m != b.shape[0]:
-#         raise Exception("Matrix and vector size missmatch")
+# @njitParallel
+def random_kaczmarz(A,b,max_iteration):
+    m = A.shape[0]
+    n = A.shape[1]
+    if m != b.shape[0]:
+        raise Exception("Matrix and vector size missmatch")
     
-#     #set initial condition:
-#     x = np.zeros(n,dtype=np.complex128)
-#     #computing probability of each row
-#     prob_row = np.zeros(m,dtype=np.float64)
-#     A_row_squared_norm = np.zeros(m,dtype=np.float64)
-#     for i in nb.prange(m):
-#         A_row_squared_norm[i] = norm2(A[i,:])
+    #set initial condition:
+    x = np.zeros(n,dtype=np.complex128)
+    #computing probability of each row
+    prob_row = np.zeros(m,dtype=np.float64)
+    A_row_squared_norm = np.zeros(m,dtype=np.float64)
+    for i in nb.prange(m):
+        A_row_squared_norm[i] = norm2(A[i,:])
             
-#     prob_row = A_row_squared_norm/np.sum(A_row_squared_norm)
-#     cum_prob_row = np.zeros(m+1,dtype=np.float64)
-#     cum_prob_row[0] = prob_row[0]
-#     for i in nb.prange(1,m):
-#         cum_prob_row[i] = cum_prob_row[i-1]+prob_row[i-1]
+    prob_row = A_row_squared_norm/np.sum(A_row_squared_norm)
+    cum_prob_row = np.zeros(m+1,dtype=np.float64)
+    cum_prob_row[0] = prob_row[0]
+    for i in nb.prange(1,m):
+        cum_prob_row[i] = cum_prob_row[i-1]+prob_row[i-1]
         
-#     # error = norm2(A@x - b)
-#     # while(error>tolerance):
-#     for k in nb.prange(max_iteration):
-#         i = get_random_index(cum_prob_row,np.random.rand(),m)
-#         x = x + (b[i] - inner(A[i,:],x.conj()) )*A[i,:]/A_row_squared_norm[i]
-#         # error = norm2(A@x - b)
-#         # print('error = {0}, i = {1}'.format(error,i))
-#     error = norm2(A@x - b)
-#     return x,error
+    # error = norm2(A@x - b)
+    # while(error>tolerance):
+    for k in nb.prange(max_iteration):
+        i = get_random_index(cum_prob_row,np.random.rand(),m)
+        x = x + (b[i] - inner(A[i,:],x.conj()) )*A[i,:]/A_row_squared_norm[i]
+        # error = norm2(A@x - b)
+        # print('error = {0}, i = {1}'.format(error,i))
+    error = norm2(A@x - b)
+    return x,error
     
-# @njitSerial       
-# def get_random_index(cum_prob_row,randNumber,m):
-#     i = 0
-#     while cum_prob_row[i]<randNumber and i<m-1:
-#         i +=1
-#     return i
+@njitSerial       
+def get_random_index(cum_prob_row,randNumber,m):
+    i = 0
+    while cum_prob_row[i]<randNumber and i<m-1:
+        i +=1
+    return i
