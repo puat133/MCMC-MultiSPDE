@@ -1,8 +1,6 @@
 # Deep Gaussian inversion 
 This repository contains an implmentation of a deep Gaussian inversion using Galerkin method.
 
-To use this package, please install the following prerequisities:
-
 This repository is tested to run against these packages
 1. `Numba` version should be later than `0.47`,
 2. `CUPY` version `0.7`, with `CUDA` version `10.1`,
