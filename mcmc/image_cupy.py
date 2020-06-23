@@ -494,53 +494,12 @@ class pCN():
             self.beta = newBeta.astype(cp.float32)
             self.betaZ = cp.sqrt(1-newBeta**2).astype(cp.float32)
     
-    def one_step_default(self,Layers):      
-        accepted = 0
-        logRatio = 0.0
-        Layers[self.n_layers-1].sample_non_centered()
-        wNew = Layers[self.n_layers-1].new_noise_sample
-        eNew = cp.random.randn(self.measurement.num_sample)
-        wBar = cp.concatenate((eNew,wNew))
-        LBar = cp.vstack((self.H,Layers[self.n_layers-1].LMat.current_L))
-        v, _, _, _ = util.lstsq(LBar,self.yBar-wBar )#,rcond=None)
-        Layers[self.n_layers-1].new_sample_sym = v
-        Layers[self.n_layers-1].new_sample = v[self.fourier.basis_number_2D_ravel-1:]
-        
-        for i in range(self.n_layers):
-            #We dont need to take sample for i=n_layers-1
-            if i<self.n_layers-1:
-                Layers[i].sample_non_centered()
-                if i>0:
-                    Layers[i].LMat.construct_from(Layers[i-1].new_sample)
-                    if i<self.n_layers-1:
-                        Layers[i].new_sample_sym = cp.linalg.solve(Layers[i].LMat.latest_computed_L,Layers[i].new_noise_sample)
-                else:
-                    Layers[i].new_sample_sym = Layers[i].stdev_sym*Layers[i].new_noise_sample
-                Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
+    
 
-            if i == self.n_layers-1:
-                logRatio += Layers[i].LMat.logDet(True) - Layers[i].LMat.logDet(False)
-                logRatio += 0.5*(util.norm2(Layers[i].LMat.current_L@v)-util.norm2(Layers[i].LMat.latest_computed_L@v))
-            if i<self.n_layers-1:
-                logRatio += 0.5*(util.norm2(Layers[i].current_noise_sample) - util.norm2(Layers[i].new_noise_sample))
-        if logRatio>cp.log(cp.random.rand()):
-            accepted = 1
-            for i in range(self.n_layers):
-                Layers[i].update_current_sample()
-                if i<self.n_layers-1 and not Layers[i+1].is_stationary:
-                    Layers[i+1].LMat.set_current_L_to_latest()
-
-            # only record when needed
-        if (self.record_count%self.record_skip) == 0:
-            # print('recorded')
-            for i in range(self.n_layers):
-                Layers[i].record_sample()
-        self.record_count += 1
-
-        return accepted
-
-    ##@cupy_profile()    
-    def one_step_non_centered_dunlop(self,Layers):
+    ##@cupy_profile()
+    # this is equals to one_step_non_centered_dunlop_MWG in the one dimensional example    
+    def one_step(self,Layers):
+        #metropolis part
         accepted = 0
         logRatio = 0.0
         for i in range(self.n_layers-1):
@@ -554,39 +513,40 @@ class pCN():
         
         # y = self.measurement.yt
         L = Layers[-1].LMat.current_L
-
         logRatio = self._log_ratio(L)
 
         L = Layers[-1].LMat.construct_from(Layers[-2].new_sample_sym,self.hybrid_mode)
-
-
         logRatio -= self._log_ratio(L)
                     
         if logRatio>cp.log(cp.random.rand()):
             accepted = 1
-            #sample the last layer
-            Layers[-1].sample_non_centered()
-            wNew = Layers[-1].new_noise_sample
-            eNew = cp.random.randn(self.measurement.num_sample)
-            wBar = cp.concatenate((eNew,wNew))
-
-            xp = cp.get_array_module(self.H)
-            if xp == np:
-                LBar = xp.vstack(( self.H,cp.asnumpy(Layers[-1].LMat.current_L)))
-                v_, res, rnk, s = xp.linalg.lstsq(LBar, cp.asnumpy(self.yBar-wBar),rcond=-1)
-                vHalf_ = v_[cp.asnumpy(self.fourier.basis_number_2D_ravel)-1:]
-                Layers[-1].new_sample_sym = cp.asarray(v_)
-                Layers[-1].new_sample = cp.asarray(vHalf_)
-            else:
-                LBar = cp.vstack((self.H,Layers[-1].LMat.latest_computed_L))
-                v, res, rnk, s = util.lstsq(LBar,self.yBar-wBar ,in_cpu=IN_CPU_LSTSQ)#,rcond=None)
-                Layers[-1].new_sample_sym = v
-                Layers[-1].new_sample = v[self.fourier.basis_number_2D_ravel-1:]
-
             for i in range(self.n_layers):
                 Layers[i].update_current_sample()
                 if not Layers[i].is_stationary:
                     Layers[i].LMat.set_current_L_to_latest()
+            Layers[-1].LMat.set_current_L_to_latest()
+
+        #Gibb part: Direct sample
+        #sample the last layer
+        Layers[-1].sample_non_centered()
+        wNew = Layers[-1].new_noise_sample
+        eNew = cp.random.randn(self.measurement.num_sample)
+        wBar = cp.concatenate((eNew,wNew))
+
+        xp = cp.get_array_module(self.H)
+        if xp == np:
+            LBar = xp.vstack(( self.H,cp.asnumpy(Layers[-1].LMat.current_L)))
+            v_, res, rnk, s = xp.linalg.lstsq(LBar, cp.asnumpy(self.yBar-wBar),rcond=-1)
+            vHalf_ = v_[cp.asnumpy(self.fourier.basis_number_2D_ravel)-1:]
+            Layers[-1].new_sample_sym = cp.asarray(v_)
+            Layers[-1].new_sample = cp.asarray(vHalf_)
+        else:
+            LBar = cp.vstack((self.H,Layers[-1].LMat.latest_computed_L))
+            v, res, rnk, s = util.lstsq(LBar,self.yBar-wBar ,in_cpu=IN_CPU_LSTSQ)#,rcond=None)
+            Layers[-1].new_sample_sym = v
+            Layers[-1].new_sample = v[self.fourier.basis_number_2D_ravel-1:]
+
+            
 
         # self.one_step_for_sqrtBetas(Layers)
         if (self.record_count%self.record_skip) == 0:
@@ -932,14 +892,11 @@ class Simulation():
         
         accepted_count_partial = 0
         linalg_error_occured = False
-        if self.pcn_variant == 'dunlop':
-            self._one_step = self.pcn.one_step_non_centered_dunlop
-        else:
-            self._one_step = self.pcn.one_step_default
+        
 
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
-                accepted_count_partial += self._one_step(self.Layers)
+                accepted_count_partial += self.pcn.one_step(self.Layers)
             except np.linalg.LinAlgError as err:
                 linalg_error_occured = True
                 print("Linear Algebra Error :",err)
