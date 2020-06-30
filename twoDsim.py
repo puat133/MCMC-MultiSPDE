@@ -3,7 +3,7 @@
 import h5py
 import matplotlib.pyplot as plt
 import mcmc.image_cupy as im
-import mcmc.plotting as p
+# import mcmc.plotting as p
 import numpy as np
 import scipy.linalg as sla
 import scipy.special as ssp
