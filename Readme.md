@@ -3,7 +3,7 @@ This repository contains an implmentation of a deep Gaussian inversion using Gal
 
 This repository is tested to run against these packages
 1. `Numba` version should be later than `0.47`,
-2. `CUPY` version `0.7`, with `CUDA` version `10.1`,
+2. `CUPY` version `7.0.0bc3`, with `CUDA` version `10.1`,
 3. Standard installation of `numpy` and `scipy`,
 4. `h5py`.
 5. Python version `3.7`.
