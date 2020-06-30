@@ -11,5 +11,6 @@ This repository is tested to run against these packages
 Explanation of files and folders:
 
 1. To run the MCMC, run `twoDsim.py`.
+2. This repository is a companion of an arXiv paper, [Non-Stationary Multi-layered Gaussian Priors for Bayesian Inversion](http://arxiv.org/abs/2006.15634)
 
 As this repository is a working folder, things might break without notification. Should you face any problem, please contact <muhammad.emzir@aalto.fi>.
