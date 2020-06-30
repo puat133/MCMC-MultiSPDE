@@ -75,7 +75,7 @@ if __name__=='__main__':
     parser.add_argument('--evaluation-interval',default=10,type=int,help='interval to print and reevaluate beta, Default=5')
     parser.add_argument('--beta',default=1,type=float,help='preconditioned Crank Nicholson beta parameter, Default=1')
     parser.add_argument('--kappa',default=5e9,type=float,help='kappa constant for u_t, Default=1e9')
-    parser.add_argument('--chol-epsilon',default=0,type=float,help='epsilon to ensure cholesky factorization always result in PD, Default=0')
+    parser.add_argument('--chol-epsilon',default=1e-6,type=float,help='epsilon to ensure cholesky factorization always result in PD, Default=1e-6')
     parser.add_argument('--sigma-0',default=4e7,type=float,help='Sigma_u constant, Default=1e7')
     parser.add_argument('--sigma-v',default=3.2e4,type=float,help='Sigma_v constant, Default=1e4')
     parser.add_argument('--meas-std',default=0.2,type=float,help='Measurement stdev, Default=0.2')
