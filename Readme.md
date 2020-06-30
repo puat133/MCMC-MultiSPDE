@@ -7,7 +7,7 @@ This repository is tested to run against these packages
 3. Standard installation of `numpy` and `scipy`,
 4. `h5py`.
 5. Python version `3.7`.
-6. Replace your `conda/envs/CUPYrc/lib/python3.7/site-packages/cupy/linalg/norms.py` with the one in the `patch` folder.
+6. Replace your `.conda/envs/xxxx/lib/python3.7/site-packages/cupy/linalg/norms.py` with the one in the `patch` folder.
 
 
 Explanation of files and folders:
