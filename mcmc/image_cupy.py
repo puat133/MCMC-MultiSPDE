@@ -402,6 +402,7 @@ class pCN():
         if self.verbose:
             print("Used bytes so far, after creating H {}".format(mempool.used_bytes()))
         # self.H_t_H = self.H.conj().T@self.H
+        self.H_conj_T = self.H.conj().T
         self.H_t_H /= self.meas_var
         # self.I = cp.eye(self.measurement.num_sample,dtype=cp.float32)
         self.I = cpx.scipy.sparse.identity(self.measurement.num_sample)
@@ -575,7 +576,7 @@ class pCN():
             c = np.linalg.cholesky(r)
             # del r
 
-            Ht = np.linalg.solve(c.astype(np.complex64),self.H.conj().T)
+            Ht = np.linalg.solve(c.astype(np.complex64),self.H_conj_T)
             # del c
             
             Q_inv = self.I.get() - (Ht.conj().T@Ht)
@@ -599,7 +600,7 @@ class pCN():
             del r
             cp._default_memory_pool.free_all_blocks()
 
-            Ht = cp.linalg.solve(c.astype(cp.complex64),self.H.conj().T)
+            Ht = cp.linalg.solve(c.astype(cp.complex64),self.H_conj_T)
             del c
             cp._default_memory_pool.free_all_blocks()
 
