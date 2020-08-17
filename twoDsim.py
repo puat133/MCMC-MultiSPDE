@@ -3,7 +3,7 @@
 import h5py
 import matplotlib.pyplot as plt
 import mcmc.image_cupy as im
-import mcmc.plotting as p
+# import mcmc.plotting as p
 import numpy as np
 import scipy.linalg as sla
 import scipy.special as ssp
@@ -75,7 +75,7 @@ if __name__=='__main__':
     parser.add_argument('--evaluation-interval',default=10,type=int,help='interval to print and reevaluate beta, Default=5')
     parser.add_argument('--beta',default=1,type=float,help='preconditioned Crank Nicholson beta parameter, Default=1')
     parser.add_argument('--kappa',default=5e9,type=float,help='kappa constant for u_t, Default=1e9')
-    parser.add_argument('--chol-epsilon',default=0,type=float,help='epsilon to ensure cholesky factorization always result in PD, Default=0')
+    parser.add_argument('--chol-epsilon',default=1e-6,type=float,help='epsilon to ensure cholesky factorization always result in PD, Default=1e-6')
     parser.add_argument('--sigma-0',default=4e7,type=float,help='Sigma_u constant, Default=1e7')
     parser.add_argument('--sigma-v',default=3.2e4,type=float,help='Sigma_v constant, Default=1e4')
     parser.add_argument('--meas-std',default=0.2,type=float,help='Measurement stdev, Default=0.2')
@@ -100,7 +100,7 @@ if __name__=='__main__':
                     ,meas_type=args.meas_type,n_theta=args.n_theta,verbose=args.verbose,hybrid_GPU_CPU=args.hybrid)
     #set pcn epsilon for cholesky
     sim.pcn.set_chol_epsilon(args.chol_epsilon)
-    sim.pcn.target_acceptance_rate = 0.5#change acceptance rate to 50%
+    sim.pcn.target_acceptance_rate = 0.234#change acceptance rate to 50%
 
     #only create result folder for the first sequence
     if args.seq_no == 0:    
@@ -109,11 +109,16 @@ if __name__=='__main__':
         folderName = args.init_folder
 
     if 'WRKDIR' in os.environ:
-            simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
+        simResultPath_parent = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'
     elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
-        simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
+        simResultPath_parent = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')
     else:
-        simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+        simResultPath_parent = pathlib.Path.home() / 'Documents' / 'SimulationResult'
+
+    if not simResultPath_parent.exists():
+        simResultPath_parent.mkdir()
+        
+    simResultPath = simResultPath_parent/folderName
     if not simResultPath.exists():
         simResultPath.mkdir()
 
