@@ -223,6 +223,32 @@ class Lmatrix_2D:
     def construct_from(self,u_sym,hybrid=False):
         uHalf2D = util.from_u_2D_ravel_to_uHalf_2D(u_sym,self.fourier.basis_number)
         return self.construct_from_2D(uHalf2D,hybrid)
+
+    def construct_from_with_sqrt_beta(self,u_sym,sqrt_beta,hybrid=False):
+        uHalf2D = util.from_u_2D_ravel_to_uHalf_2D(u_sym,self.fourier.basis_number)
+        assert uHalf2D.shape[1] == self.fourier.basis_number
+        if not hybrid:
+            Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu)
+            Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
+            L = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_d_per_2)/sqrt_beta
+            
+        else:
+            #mode ngirit
+            temp = -self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
+            temp /= self.sqrt_beta
+            temp_cp = cp.asnumpy(temp)
+            del temp
+            cp._default_memory_pool.free_all_blocks()
+            temp = util.matMulti_sparse(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu),self.fourier.Dmatrix)/sqrt_beta
+            temp_cp += cp.asnumpy(temp) 
+            
+            del temp
+            cp._default_memory_pool.free_all_blocks()
+
+            L =  cp.asarray(temp_cp)
+        
+        self.latest_computed_L = L
+        return L
     
     def construct_derivative_from(self,u_sym,m,hybrid=False):
         uHalf2D = util.from_u_2D_ravel_to_uHalf_2D(u_sym,self.fourier.basis_number)
@@ -643,13 +669,13 @@ class pCN():
 
         for i in range(self.n_layers):
             
-            temp = cp.sqrt(1-self.pcn_step_sqrtBetas**2)*Layers[i].sqrt_beta + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
+            temp = cp.sqrt(1-self.pcn_step_sqrtBetas**2)*cp.log(Layers[i].sqrt_beta) + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
             propSqrtBetas[i] = cp.exp(temp)#max(temp,1e-4)
             if i==0:
                 stdev_sym_temp = (propSqrtBetas[i]/Layers[i].sqrt_beta)*Layers[i].stdev_sym
                 Layers[i].new_sample_sym = stdev_sym_temp*Layers[i].current_noise_sample
             else:
-                Layers[i].LMat.construct_from_with_sqrt_beta(Layers[i-1].new_sample,propSqrtBetas[i])
+                Layers[i].LMat.construct_from_with_sqrt_beta(Layers[i-1].new_sample_sym,propSqrtBetas[i])
                 if i < self.n_layers-1:
                     Layers[i].new_sample_sym = cp.linalg.solve(Layers[i].LMat.latest_computed_L,Layers[i].current_noise_sample)
                 else:        
@@ -665,11 +691,9 @@ class pCN():
         L = Layers[-1].LMat.current_L
         logRatio = self._log_ratio(L)
         
-        L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
+        L = Layers[-1].LMat.construct_from(Layers[-2].new_sample_sym)
         logRatio -= self._log_ratio(L)
 
-        # logRatio = 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].current_sample_sym))
-        # logRatio -= 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].new_sample_sym))
 
         if logRatio>cp.log(cp.random.rand()):
             # print('Proposal sqrt_beta accepted!')
@@ -771,7 +795,7 @@ class Layer():
 
     def record_sqrt_beta(self):
         if self.i_record < self.sqrt_beta_history.shape[0]:
-            self.sqrt_beta_history[i_record] = self.sqrt_beta
+            self.sqrt_beta_history[self.i_record] = self.sqrt_beta
 
     #@cupy_profile()
     def update_current_sample(self):
@@ -910,7 +934,7 @@ class Simulation():
                     # lay = Layer(False, self.sqrtBeta_v*0.1,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
 
             lay.update_current_sample()
-            self.pcn.Layers_sqrtBetas[i] = lay.sqrt_beta
+            # self.pcn.Layers_sqrtBetas[i] = lay.sqrt_beta
             lay.samples_history = np.empty((history_length, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
             lay.sqrt_beta_history = np.empty(history_length,dtype=np.float32)
             Layers.append(lay)
