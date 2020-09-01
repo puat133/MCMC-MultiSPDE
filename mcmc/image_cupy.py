@@ -930,7 +930,7 @@ class Simulation():
                     
                     
                 else:
-                    lay = layer.Layer(False, sqrtBeta_v*np.sqrt(sigma_scaling),i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
+                    lay = Layer(False, self.sqrtBeta_v*np.sqrt(sigma_scaling),i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
                     # lay = Layer(False, self.sqrtBeta_v*0.1,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
 
             lay.update_current_sample()
