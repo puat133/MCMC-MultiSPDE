@@ -424,8 +424,14 @@ class pCN():
         self.record_count = 0
         self.max_record_history = 1000000
 
-        self.Layers_sqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)      
-    
+        # self.Layers_sqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)      
+
+        #TODO: Check this again
+        self.pcn_step_sqrtBetas = 5e-1
+        self.pcn_step_sqrtBetas_Z = cp.sqrt(1-self.pcn_step_sqrtBetas)
+        self.stdev_sqrtBetas = cp.ones(self.n_layers,dtype=cp.float32)
+        self.use_beta_adaptation = False #Default_false
+
     def reset_chol_stabilizer(self):
         self.cholesky_stabilizer = self.epsilon*cp.linalg.norm(self.H_t_H)
 
@@ -481,20 +487,27 @@ class pCN():
         
 
     #@cupy_profile()
-    def adapt_beta(self,current_acceptance_rate):
-        self.set_beta(self.beta*cp.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
+    def adapt_step(self,current_acceptance_rate):
+        self.set_step(self.beta*cp.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
     #@cupy_profile()
     def more_aggresive(self):
-        self.set_beta(cp.min(cp.array([(1+self.aggresiveness)*self.beta,1],dtype=cp.float32)))
+        self.set_step(cp.min(cp.array([(1+self.aggresiveness)*self.beta,1],dtype=cp.float32)))
     #@cupy_profile() 
     def less_aggresive(self):
-        self.set_beta(cp.min(cp.array([(1-self.aggresiveness)*self.beta,1e-10],dtype=cp.float32)))
+        self.set_step(cp.min(cp.array([(1-self.aggresiveness)*self.beta,1e-10],dtype=cp.float32)))
     #@cupy_profile()
-    def set_beta(self,newBeta):
+    def set_step(self,newBeta):
         if 1e-7<newBeta<1:
             self.beta = newBeta.astype(cp.float32)
             self.betaZ = cp.sqrt(1-newBeta**2).astype(cp.float32)
+
+    def set_step_sqrtBeta(self,newStep):
+        self.pcn_step_sqrtBetas = min(1.,newStep)
+        self.pcn_step_sqrtBetas_Z = np.sqrt(1-self.pcn_step_sqrtBetas**2)
     
+    def adapt_step_sqrtBeta(self,current_acceptance_rate):
+        #based on Algorithm 2 of: Computational Methods for Bayesian Inference in Complex Systems: Thesis
+        self.set_step_sqrtBeta(self.pcn_step_sqrtBetas*np.exp(self.beta_feedback_gain*(current_acceptance_rate-self.target_acceptance_rate)))
     
 
     ##@cupy_profile()
@@ -549,15 +562,21 @@ class pCN():
 
             
 
-        # self.one_step_for_sqrtBetas(Layers)
+        #adapt sqrtBetas
+        if self.use_beta_adaptation:
+            accepted_SqrtBeta = self.one_step_for_sqrtBetas(Layers)
+        else:
+            accepted_SqrtBeta = 0
+        
         if (self.record_count%self.record_skip) == 0:
-            # self.sqrtBetas_history[self.record_count,:] = self.Layers_sqrtBetas
+            # self.sqrtBetas_history[self.record_count,:] = cp.asnumpy(self.Layers_sqrtBetas,order=ORDER)
             for i in range(self.n_layers):
                 Layers[i].record_sample()
+                Layers[i].record_sqrt_beta()
 
         self.record_count += 1
 
-        return accepted
+        return accepted,accepted_SqrtBeta
     
     def _log_ratio(self,L):
         
@@ -618,13 +637,14 @@ class pCN():
 
     ##@cupy_profile()
     def one_step_for_sqrtBetas(self,Layers):
+        accepted_SqrtBeta = 0
         sqrt_beta_noises = self.stdev_sqrtBetas*cp.random.randn(self.n_layers)
         propSqrtBetas = cp.zeros(self.n_layers,dtype=cp.float32)
 
         for i in range(self.n_layers):
             
             temp = cp.sqrt(1-self.pcn_step_sqrtBetas**2)*Layers[i].sqrt_beta + self.pcn_step_sqrtBetas*sqrt_beta_noises[i]
-            propSqrtBetas[i] = max(temp,1e-4)
+            propSqrtBetas[i] = cp.exp(temp)#max(temp,1e-4)
             if i==0:
                 stdev_sym_temp = (propSqrtBetas[i]/Layers[i].sqrt_beta)*Layers[i].stdev_sym
                 Layers[i].new_sample_sym = stdev_sym_temp*Layers[i].current_noise_sample
@@ -641,19 +661,28 @@ class pCN():
                     Layers[-1].new_sample_sym = v
                     Layers[i].new_sample = Layers[i].new_sample_sym[self.fourier.basis_number_2D_ravel-1:]
 
-        logRatio = 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].current_sample_sym))
-        logRatio -= 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].new_sample_sym))
+        #
+        L = Layers[-1].LMat.current_L
+        logRatio = self._log_ratio(L)
+        
+        L = Layers[-1].LMat.construct_from(Layers[-2].new_sample)
+        logRatio -= self._log_ratio(L)
+
+        # logRatio = 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].current_sample_sym))
+        # logRatio -= 0.5*(util.norm2(self.y/self.measurement.stdev - self.H@Layers[-1].new_sample_sym))
 
         if logRatio>cp.log(cp.random.rand()):
             # print('Proposal sqrt_beta accepted!')
-            self.Layers_sqrtBetas = propSqrtBetas
+            accepted_SqrtBeta = 1
+            # self.Layers_sqrtBetas = propSqrtBetas
             for i in range(self.n_layers):
                 Layers[i].sqrt_beta = propSqrtBetas[i]
                 Layers[i].LMat.set_current_L_to_latest()
                 if Layers[i].is_stationary:
                     Layers[i].stdev_sym = stdev_sym_temp
                     Layers[i].stdev = Layers[i].stdev_sym[self.fourier.basis_number_2D_ravel-1:]
-
+        
+        return accepted_SqrtBeta
     
 
 """
@@ -668,13 +697,15 @@ class Layer():
         self.n_samples = n_samples
         self.pcn = pcn
 
-        # zero_compl_dummy =  cp.zeros(self.pcn.fourier.basis_number_2D_ravel,dtype=cp.complex64)
         ones_compl_dummy =  cp.ones(self.pcn.fourier.basis_number_2D_ravel,dtype=cp.complex64)
 
         self.stdev = ones_compl_dummy
         self.stdev_sym = util.symmetrize(self.stdev)
         self.samples_history = np.empty((self.n_samples, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
-    
+        
+        self.sqrt_beta_history = np.empty(self.n_samples, dtype=np.float32)
+        self.sqrt_beta_history[0] = self.sqrt_beta
+
         self.LMat = Lmatrix_2D(self.pcn.fourier,self.sqrt_beta)
         self.current_noise_sample = self.pcn.random_gen.construct_w()#noise sample always symmetric
         self.new_noise_sample = self.current_noise_sample.copy()
@@ -737,6 +768,11 @@ class Layer():
         if self.i_record < self.samples_history.shape[0]:
             self.samples_history[self.i_record,:] = cp.asnumpy(self.current_sample,order=ORDER)
             self.i_record += 1
+
+    def record_sqrt_beta(self):
+        if self.i_record < self.sqrt_beta_history.shape[0]:
+            self.sqrt_beta_history[i_record] = self.sqrt_beta
+
     #@cupy_profile()
     def update_current_sample(self):
         self.current_sample = self.new_sample.copy()
@@ -748,7 +784,7 @@ class Layer():
 
 class Simulation():
     def __init__(self,n_layers,n_samples,n,n_extended,beta,kappa,sigma_0,sigma_v,sigma_scaling,meas_std,evaluation_interval,printProgress,
-                    seed,burn_percentage,enable_beta_feedback,pcn_variant,phantom_name,meas_type='tomo',n_theta=50,verbose=False,hybrid_GPU_CPU=False):
+                    seed,burn_percentage,enable_step_adaptation,pcn_variant,phantom_name,meas_type='tomo',n_theta=50,verbose=False,hybrid_GPU_CPU=False):
         self.n_samples = n_samples
         self.evaluation_interval = evaluation_interval
         self.burn_percentage = burn_percentage
@@ -760,11 +796,13 @@ class Simulation():
         self.sigma_0 = sigma_0
         self.sigma_v = sigma_v
         self.sigma_scaling = sigma_scaling
-        self.enable_beta_feedback = enable_beta_feedback
+        self.enable_step_adaptation = enable_step_adaptation
         self.verbose = verbose
         self.hybrid = hybrid_GPU_CPU
         self.mempool = None
-        self.acceptancePercentage = 0
+        self.acceptancePercentage = 0.
+        self.accepted_count = 0
+        self.accepted_count_SqrtBeta = 0
         cp.random.seed(self.random_seed)
 
         #CUPY memory management
@@ -835,7 +873,7 @@ class Simulation():
         
         self.pcn.record_skip = np.max(cp.array([1,self.n_samples//self.pcn.max_record_history]))
         history_length = np.min(np.array([self.n_samples,self.pcn.max_record_history])) 
-        self.pcn.sqrtBetas_history = np.empty((history_length, self.n_layers), dtype=np.float64)
+        # self.pcn.sqrtBetas_history = np.empty((history_length, self.n_layers), dtype=np.float32)
         Layers = []
         for i in range(self.n_layers):
             if i==0:
@@ -868,12 +906,13 @@ class Simulation():
                     
                     
                 else:
-                    # lay = layer.Layer(False, sqrtBeta_v*np.sqrt(sigma_scaling),i, n_samples, pcn,Layers[i-1].current_sample)
-                    lay = Layer(False, self.sqrtBeta_v*0.1,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
+                    lay = layer.Layer(False, sqrtBeta_v*np.sqrt(sigma_scaling),i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
+                    # lay = Layer(False, self.sqrtBeta_v*0.1,i, self.n_samples, self.pcn,Layers[i-1].current_sample_sym)
 
             lay.update_current_sample()
             self.pcn.Layers_sqrtBetas[i] = lay.sqrt_beta
             lay.samples_history = np.empty((history_length, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
+            lay.sqrt_beta_history = np.empty(history_length,dtype=np.float32)
             Layers.append(lay)
             if self.verbose:
                 print("Used bytes so far, after creating Layer {} {}".format(i,self.mempool.used_bytes()))
@@ -892,12 +931,15 @@ class Simulation():
         start_time_intv = start_time
         
         accepted_count_partial = 0
+        accepted_count_partial_SqrtBeta = 0
         linalg_error_occured = False
         
 
         for i in range(self.n_samples):#nb.prange(nSim):
             try:
-                accepted_count_partial += self.pcn.one_step(self.Layers)
+                accepted,accepted_SqrtBeta = self.pcn.one_step(self.Layers)
+                accepted_count_partial += accepted
+                accepted_count_partial_SqrtBeta += accepted_SqrtBeta
             except np.linalg.LinAlgError as err:
                 linalg_error_occured = True
                 print("Linear Algebra Error :",err)
@@ -906,12 +948,15 @@ class Simulation():
             else:
                 if (i+1)%(self.evaluation_interval) == 0:
                     self.accepted_count += accepted_count_partial
+                    self.accepted_count_SqrtBeta += accepted_count_partial_SqrtBeta
                     self.acceptancePercentage = self.accepted_count/(i+1)
                         
-                    if self.enable_beta_feedback:
-                        self.pcn.adapt_beta(self.acceptancePercentage)
+                    if self.enable_step_adaptation:
+                        self.pcn.adapt_step(self.acceptancePercentage)
+                        self.pcn.adapt_step_sqrtBeta(self.accepted_count_SqrtBeta/(i+1))
                     
                     accepted_count_partial = 0
+                    accepted_count_partial_SqrtBeta = 0
                     mTime = (i+1)/(self.evaluation_interval)
                     
                     end_time_intv = time.time()
