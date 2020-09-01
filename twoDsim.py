@@ -89,7 +89,7 @@ if __name__=='__main__':
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'verbose',default=True,messages='Verbose mode, Default=True')
     ph.add_boolean_argument(parser,'hybrid',default=False,messages='Use both GPU and CPU memory, Default=False')
-    ph.add_boolean_argument(parser,'adapt-sqrtbeta',default=True,messages='Whether using sqrt_beta adaptation, Default=False')
+    ph.add_boolean_argument(parser,'adapt-sqrtbeta',default=False,messages='Whether using sqrt_beta adaptation, Default=False')
 
     args = parser.parse_args()
     if args.n_theta == 18:
@@ -103,7 +103,7 @@ if __name__=='__main__':
     sim.pcn.set_chol_epsilon(args.chol_epsilon)
     sim.pcn.target_acceptance_rate = 0.234#change acceptance rate to 50%
     sim.pcn.use_beta_adaptation = args.adapt_sqrtbeta
-    
+
     #only create result folder for the first sequence
     if args.seq_no == 0:    
         folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M_%S')
