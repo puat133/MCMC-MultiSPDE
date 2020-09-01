@@ -85,10 +85,11 @@ if __name__=='__main__':
     parser.add_argument('--phantom-name',default="shepp.png",type=str,help='Phantom name, Default=shepp.png')
     parser.add_argument('--meas-type',default="tomo",type=str,help='Two D Measurement, Default=tomo')
     parser.add_argument('--init-folder',default="",type=str,help='Initial condition for the states, Default=empty')
-    ph.add_boolean_argument(parser,'enable-beta-feedback',default=True,messages='Whether beta-feedback will be enabled, Default=True')
+    ph.add_boolean_argument(parser,'enable-step-adaptation',default=True,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'verbose',default=True,messages='Verbose mode, Default=True')
     ph.add_boolean_argument(parser,'hybrid',default=False,messages='Use both GPU and CPU memory, Default=False')
+    ph.add_boolean_argument(parser,'adapt-sqrtbeta',default=True,messages='Whether using sqrt_beta adaptation, Default=False')
 
     args = parser.parse_args()
     if args.n_theta == 18:
@@ -96,12 +97,13 @@ if __name__=='__main__':
         
     sim = im.Simulation(n_layers=args.n_layers,n_samples = args.n_samples,n = args.n,n_extended = args.n_extended,beta = args.beta,
                     kappa = args.kappa,sigma_0 = args.sigma_0,sigma_v = args.sigma_v,sigma_scaling=args.sigma_scaling,meas_std=args.meas_std,evaluation_interval = args.evaluation_interval,printProgress=args.print_progress,
-                    seed=args.seed,burn_percentage = args.burn_percentage,enable_beta_feedback=args.enable_beta_feedback,pcn_variant=args.variant,phantom_name=args.phantom_name
+                    seed=args.seed,burn_percentage = args.burn_percentage,enable_step_adaptation=args.enable_step_adaptation,pcn_variant=args.variant,phantom_name=args.phantom_name
                     ,meas_type=args.meas_type,n_theta=args.n_theta,verbose=args.verbose,hybrid_GPU_CPU=args.hybrid)
     #set pcn epsilon for cholesky
     sim.pcn.set_chol_epsilon(args.chol_epsilon)
     sim.pcn.target_acceptance_rate = 0.234#change acceptance rate to 50%
-
+    sim.pcn.use_beta_adaptation = args.adapt_sqrtbeta
+    
     #only create result folder for the first sequence
     if args.seq_no == 0:    
         folderName = 'result-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M_%S')
