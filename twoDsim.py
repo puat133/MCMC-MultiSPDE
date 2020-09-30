@@ -74,7 +74,7 @@ if __name__=='__main__':
     parser.add_argument('--n-samples',default=100,type=int,help='number of MCMC samples per computer core, Default=100')
     parser.add_argument('--evaluation-interval',default=10,type=int,help='interval to print and reevaluate beta, Default=5')
     parser.add_argument('--beta',default=1,type=float,help='preconditioned Crank Nicholson beta parameter, Default=1')
-    parser.add_argument('--kappa',default=5e9,type=float,help='kappa constant for u_t, Default=1e9')
+    parser.add_argument('--kappa',default=5e9,type=float,help='kappa constant for u_t, Default=5e9')
     parser.add_argument('--chol-epsilon',default=1e-6,type=float,help='epsilon to ensure cholesky factorization always result in PD, Default=1e-6')
     parser.add_argument('--sigma-0',default=4e7,type=float,help='Sigma_u constant, Default=1e7')
     parser.add_argument('--sigma-v',default=3.2e4,type=float,help='Sigma_v constant, Default=1e4')
@@ -85,6 +85,7 @@ if __name__=='__main__':
     parser.add_argument('--phantom-name',default="shepp.png",type=str,help='Phantom name, Default=shepp.png')
     parser.add_argument('--meas-type',default="tomo",type=str,help='Two D Measurement, Default=tomo')
     parser.add_argument('--init-folder',default="",type=str,help='Initial condition for the states, Default=empty')
+    ph.add_boolean_argument(parser,'naive',default=True,messages='Use naive computation for logRatio=True')
     ph.add_boolean_argument(parser,'enable-step-adaptation',default=True,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'verbose',default=True,messages='Verbose mode, Default=True')
@@ -103,6 +104,7 @@ if __name__=='__main__':
     sim.pcn.set_chol_epsilon(args.chol_epsilon)
     sim.pcn.target_acceptance_rate = 0.234#change acceptance rate to 50%
     sim.pcn.use_beta_adaptation = args.adapt_sqrtbeta
+    sim.pcn.use_naive_logRatio_implementation = args.naive
 
     #only create result folder for the first sequence
     if args.seq_no == 0:    
