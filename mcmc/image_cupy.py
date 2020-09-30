@@ -17,6 +17,7 @@ import h5py
 import numba as nb
 import cupyx as cpx
 import cupyx.scipy.fftpack as cpxFFT
+from mcmc.extra_linalg import solve_triangular,qr
 from cupy.prof import TimeRangeDecorator as cupy_profile
 ORDER = 'F'
 IN_CPU_LSTSQ = False
@@ -430,9 +431,10 @@ class pCN():
         # self.H_t_H = self.H.conj().T@self.H
         self.H_conj_T = self.H.conj().T
         self.H_t_H /= self.meas_var
-        # self.I = cp.eye(self.measurement.num_sample,dtype=cp.float32)
-        self.I = cpx.scipy.sparse.identity(self.measurement.num_sample)
-        self.In = cpx.scipy.sparse.identity(self.fourier.basis_number_2D_sym)
+        self.I = cp.eye(self.measurement.num_sample,dtype=cp.float32)
+        # self.I = cpx.scipy.sparse.identity(self.measurement.num_sample)
+        # self.In = cpx.scipy.sparse.identity(self.fourier.basis_number_2D_sym)
+        self.In = cp.eye(self.fourier.basis_number_2D_sym)
         
         self.y = self.measurement.y
         self.yBar = cp.concatenate((self.y,cp.zeros(2*self.fourier.basis_number_2D_ravel-1)))
@@ -457,6 +459,7 @@ class pCN():
         self.pcn_step_sqrtBetas_Z = cp.sqrt(1-self.pcn_step_sqrtBetas)
         self.stdev_sqrtBetas = cp.ones(self.n_layers,dtype=cp.float32)
         self.use_beta_adaptation = False #Default_false
+        self.use_naive_logRatio_implementation = False
 
     def reset_chol_stabilizer(self):
         self.cholesky_stabilizer = self.epsilon*cp.linalg.norm(self.H_t_H)
@@ -605,58 +608,36 @@ class pCN():
         return accepted,accepted_SqrtBeta
     
     def _log_ratio(self,L):
+
         
-        # del L <-dont delete L
-        # r = temp.real + self.H_t_H
         if self.hybrid_mode:
             L_ = cp.asnumpy(L)
             temp = L_.conj().T@L_
-            
             r = temp + self.H_t_H + self.cholesky_stabilizer*self.In
-            # r = temp + self.H_t_H
-
-            # r = 0.5*(temp+temp.conj().T) + self.H_t_H
-            # del temp
-            
             c = np.linalg.cholesky(r)
-            # del r
-
             Ht = np.linalg.solve(c.astype(np.complex64),self.H_conj_T)
-            # del c
-            
             Q_inv = self.I.get() - (Ht.conj().T@Ht)
-            # del Ht
-            
             logRatio = 0.5*(self.y_@Q_inv@self.y_ - np.linalg.slogdet(Q_inv/self.meas_var)[1])
-            # del R_inv
-
             logRatio = cp.asarray(logRatio)
             
         else:
-            temp = L.conj().T@L
-            #epsilon is added to make sure that cholesky factorization working
-            
-            r = temp + self.H_t_H + self.cholesky_stabilizer*self.In
-            # r = 0.5*(temp+temp.conj().T) + self.H_t_H
-            del temp
-            cp._default_memory_pool.free_all_blocks()
-
-            c = cp.linalg.cholesky(r)
-            del r
-            cp._default_memory_pool.free_all_blocks()
-
-            Ht = cp.linalg.solve(c.astype(cp.complex64),self.H_conj_T)
-            del c
-            cp._default_memory_pool.free_all_blocks()
-
-            Q_inv = self.I - (Ht.conj().T@Ht)
-            del Ht
-            cp._default_memory_pool.free_all_blocks()
-
-            logRatio = 0.5*(self.y@Q_inv@self.y - cp.linalg.slogdet(Q_inv/self.meas_var)[1])
-            
-            del Q_inv
-            cp._default_memory_pool.free_all_blocks()
+            if not self.use_naive_logRatio_implementation:         
+                temp = L.conj().T@L
+                #epsilon is added to make sure that cholesky factorization working
+                r = temp + self.H_t_H + self.cholesky_stabilizer*self.In
+                c = cp.linalg.cholesky(r)
+                Ht = cp.linalg.solve(c.astype(cp.complex64),self.H_conj_T)
+                Q_inv = self.I - (Ht.conj().T@Ht)
+                
+                # logRatio = 0.5*(self.y@Q_inv@self.y - cp.linalg.slogdet(Q_inv/self.meas_var)[1])
+                C = cp.linalg.cholesky(Q_inv)
+                logRatio = 0.5*cp.linalg.norm(self.y@C)**2 - cp.sum(cp.log(cp.diag(C.real)))
+            else:
+                Z = cp.linalg.solve(L.conj().T,self.H_conj_T)
+                Q = Z.conj().T@Z + self.I
+                q,r = qr(Q) 
+                # logRatio = 0.5*cp.linalg.norm(solve_triangular(C,self.y,lower=True))**2 + cp.linalg.slogdet(C*self.meas_var)[1]
+                logRatio = 0.5*cp.linalg.norm(solve_triangular(r,q.conj().T@self.y))**2 + cp.sum(cp.log(cp.abs(cp.diag(r))))#cp.log(cp.abs(cp.prod(cp.diag(r))))
 
         return logRatio
 
@@ -937,6 +918,7 @@ class Simulation():
             # self.pcn.Layers_sqrtBetas[i] = lay.sqrt_beta
             lay.samples_history = np.empty((history_length, self.pcn.fourier.basis_number_2D_ravel), dtype=np.complex64)
             lay.sqrt_beta_history = np.empty(history_length,dtype=np.float32)
+            lay.record_sqrt_beta()
             Layers.append(lay)
             if self.verbose:
                 print("Used bytes so far, after creating Layer {} {}".format(i,self.mempool.used_bytes()))
