@@ -318,7 +318,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
                         color='b', alpha=0.1)
         plt.plot(t_index,ri_compare[slice_index,:],':k',linewidth=0.25,markersize=1)
         # plt.savefig(SimulationResult_dir/'1D_Slice_{}'+image_extension.format(slice_index-(target_image.shape[0]//2))), bbox_inches='tight')
-        savefig(SimulationResult_dir/'1D_Slice_{}'.format(slice_index-(target_image.shape[0]//2))+image_extension)
+        savefig(SimulationResult_dir/('1D_Slice_{}'.format(slice_index-(target_image.shape[0]//2))+image_extension))
         plt.close()
 
     
@@ -334,7 +334,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
                         np.abs(vF_mean_n[slice_index,n-1:])+2*vF_abs_stdev_n[slice_index,n-1:], 
                         color='b', alpha=0.1)
         # plt.savefig(SimulationResult_dir/'1D_F_Slice_{}'+image_extension.format(slice_index-n)), bbox_inches='tight')
-        savefig(SimulationResult_dir/'1D_F_Slice_{}'.format(slice_index-n)+image_extension)
+        savefig(SimulationResult_dir/('1D_F_Slice_{}'.format(slice_index-n)+image_extension))
         plt.close()
 
     error = (target_image-ri_mean_n)
