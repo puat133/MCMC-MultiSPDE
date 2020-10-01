@@ -355,7 +355,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
                         ri_mean_n[slice_index,:]+2*ri_std_n[slice_index,:], 
                         color='b', alpha=0.1)
         plt.plot(t_index,ri_compare[slice_index,:],':k',linewidth=0.5,markersize=1)
-        plt.savefig(str(SimulationResult_dir/'1D_Slice_{}'+image_extension.format(slice_index-(target_image.shape[0]//2))), bbox_inches='tight')
+        plt.savefig(str(SimulationResult_dir/'1D_Slice_{}'.format(slice_index-(target_image.shape[0]//2)))+image_extension, bbox_inches='tight')
         plt.close()
 
     
@@ -370,7 +370,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
         plt.fill_between(f_index,np.abs(vF_mean_n[slice_index,n-1:])-2*vF_abs_stdev_n[slice_index,n-1:],
                         np.abs(vF_mean_n[slice_index,n-1:])+2*vF_abs_stdev_n[slice_index,n-1:], 
                         color='b', alpha=0.1)
-        plt.savefig(str(SimulationResult_dir/'1D_F_Slice_{}'+image_extension.format(slice_index-n)), bbox_inches='tight')
+        plt.savefig(str(SimulationResult_dir/'1D_F_Slice_{}'.format(slice_index-n))+image_extension, bbox_inches='tight')
         plt.close()
 #    fig.colorbar(im, ax=ax[:,:], shrink=0.8)
 #    fig.savefig(str(SimulationResult_dir/'Result')+image_extension, bbox_inches='tight')
