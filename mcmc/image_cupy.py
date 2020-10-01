@@ -634,10 +634,21 @@ class pCN():
                 logRatio = 0.5*cp.linalg.norm(self.y@C)**2 - cp.sum(cp.log(cp.diag(C.real)))
             else:
                 Z = cp.linalg.solve(L.conj().T,self.H_conj_T)
-                Q = Z.conj().T@Z + self.I
-                q,r = qr(Q) 
-                # logRatio = 0.5*cp.linalg.norm(solve_triangular(C,self.y,lower=True))**2 + cp.linalg.slogdet(C*self.meas_var)[1]
-                logRatio = 0.5*cp.linalg.norm(solve_triangular(r,q.conj().T@self.y))**2 + cp.sum(cp.log(cp.abs(cp.diag(r))))#cp.log(cp.abs(cp.prod(cp.diag(r))))
+                # use QR
+                # Q = Z.conj().T@Z  + self.I
+                # Q += Q.conj().T
+                # q,r = qr(Q)
+                # logRatio = 0.5*cp.linalg.norm(solve_triangular(r,q.conj().T@self.y))**2 + cp.sum(cp.log(cp.abs(cp.diag(r))))#cp.log(cp.abs(cp.prod(cp.diag(r))))
+
+
+                # Q_r = cp.dot(Z.imag.T,Z.imag) cp.dot(Z.real.T,Z.real) + self.I
+                # Q_i = Z.real.T@Z.imag
+                # Q_i -= Q_i.T
+                C = cp.linalg.cholesky(Z.conj().T@Z+self.I)
+                logRatio = 0.5*cp.linalg.norm(solve_triangular(C,self.y,lower=True))**2 + cp.sum(cp.log(cp.diag(C).real))
+                
+
+                
 
         return logRatio
 

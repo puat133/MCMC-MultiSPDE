@@ -16,6 +16,8 @@ import argparse
 import parser_help as ph
 import post_analysis as pa
 import subprocess
+import cupyx
+cupyx.errstate()
 from skimage.transform import iradon
 
 
