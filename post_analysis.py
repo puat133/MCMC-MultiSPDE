@@ -163,7 +163,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Fourier - imaginary part')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'vF_init'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'vF_init')+image_extension, bbox_inches='tight')
     plt.close()
 
     #vF Original 
@@ -177,7 +177,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Fourier - angle')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'vForiginal'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'vForiginal')+image_extension, bbox_inches='tight')
     plt.close()
 
     #vF Original 
@@ -191,7 +191,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Fourier - phase')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'vF_mean'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'vF_mean')+image_extension, bbox_inches='tight')
     plt.close()
 
     #Absolute error of vF - vForiginal
@@ -200,7 +200,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Fourier abs Error')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'abs_err_vF_mean'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'abs_err_vF_mean')+image_extension, bbox_inches='tight')
     plt.close()
 
     #Absolute error of vF_init - vForiginal
@@ -209,7 +209,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Fourier abs Error')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'abs_err_vF_init'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'abs_err_vF_init')+image_extension, bbox_inches='tight')
     plt.close()
 
     #Absolute error of vF_init - vForiginal
@@ -218,7 +218,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Fourier abs Error')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'abs_err_vF_init_vF_mean'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'abs_err_vF_init_vF_mean')+image_extension, bbox_inches='tight')
     plt.close()
 
     fig = plt.figure()
@@ -226,7 +226,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Reconstructed Image mean')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'ri_mean_n'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'ri_mean_n')+image_extension, bbox_inches='tight')
     plt.close()
 
     fig = plt.figure()
@@ -234,7 +234,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Reconstructed Image through Fourier')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'ri_or_n'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'ri_or_n')+image_extension, bbox_inches='tight')
     plt.close()
 
     fig = plt.figure()
@@ -242,7 +242,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Reconstructed Image through Fourier')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'ri_init'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'ri_init')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -250,7 +250,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Reconstructed Image variance')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'ri_var_n'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'ri_var_n')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -258,7 +258,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Target Image')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'target_image'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'target_image')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -269,7 +269,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
         plt.title('Reconstructed Image From vFOriginal')
     fig.colorbar(im)
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'ri_compare'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'ri_compare')+image_extension, bbox_inches='tight')
     plt.close()
 
     fig = plt.figure()
@@ -277,7 +277,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Error SPDE')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'err_RI_TI'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'err_RI_TI')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -285,7 +285,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Error SPDE')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'err_RIO_TI'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'err_RIO_TI')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -293,7 +293,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Error FPB')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'err_RI_CMP'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'err_RI_CMP')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -301,7 +301,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Mean $u$')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'u_mean_n'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'u_mean_n')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -309,7 +309,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     plt.title('Var $u$')
     fig.colorbar(im)
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'u_var_n'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'u_var_n')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -317,7 +317,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Mean $\ell$')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'ell_mean_n'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'ell_mean_n')+image_extension, bbox_inches='tight')
     plt.close()
     
     fig = plt.figure()
@@ -325,7 +325,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.title('Var $\ell$')
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'ell_var_n'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'ell_var_n')+image_extension, bbox_inches='tight')
     plt.close()
     
     
@@ -338,7 +338,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
         plt.title('corrupted_image --- CI')
     fig.colorbar(im)
     plt.tight_layout()
-    plt.savefig(str(SimulationResult_dir/'measurement'+image_extension), bbox_inches='tight')
+    plt.savefig(str(SimulationResult_dir/'measurement')+image_extension, bbox_inches='tight')
     plt.close()
 
     #plot several slices
@@ -373,7 +373,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
         plt.savefig(str(SimulationResult_dir/'1D_F_Slice_{}'+image_extension.format(slice_index-n)), bbox_inches='tight')
         plt.close()
 #    fig.colorbar(im, ax=ax[:,:], shrink=0.8)
-#    fig.savefig(str(SimulationResult_dir/'Result'+image_extension), bbox_inches='tight')
+#    fig.savefig(str(SimulationResult_dir/'Result')+image_extension, bbox_inches='tight')
 #    for ax_i in ax.flatten():
 #        extent = ax_i.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
 #    #    print(ax_i.title.get_text())
