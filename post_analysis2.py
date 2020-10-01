@@ -11,7 +11,7 @@ import mcmc.util_cupy as util
 import matplotlib.pyplot as plt
 import cupy as cp, numpy as np
 import mcmc.image_cupy as imc
-import mcmc.measurement as mcmcMeas
+# import mcmc.measurement as mcmcMeas
 import pathlib
 import seaborn as sns
 import os
