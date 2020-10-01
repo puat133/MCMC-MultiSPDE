@@ -105,121 +105,122 @@ def solve_triangular(a, b, trans=0, lower=False, unit_diagonal=False,
         m, n, 1, a.data.ptr, m, b.data.ptr, m)
     return b
 
+#DEPRECATED as it is supported in CUPY 8.0
 #taken from https://github.com/leofang/cupy/blob/85b66e1c8cb85701f22993499e5116c2edda7bf2/cupy/linalg/decomposition.py
-def qr(a, mode='reduced'):
-    """QR decomposition.
-    Decompose a given two-dimensional matrix into ``Q * R``, where ``Q``
-    is an orthonormal and ``R`` is an upper-triangular matrix.
-    Args:
-        a (cupy.ndarray): The input matrix.
-        mode (str): The mode of decomposition. Currently 'reduced',
-            'complete', 'r', and 'raw' modes are supported. The default mode
-            is 'reduced', in which matrix ``A = (M, N)`` is decomposed into
-            ``Q``, ``R`` with dimensions ``(M, K)``, ``(K, N)``, where
-            ``K = min(M, N)``.
-    Returns:
-        cupy.ndarray, or tuple of ndarray:
-            Although the type of returned object depends on the mode,
-            it returns a tuple of ``(Q, R)`` by default.
-            For details, please see the document of :func:`numpy.linalg.qr`.
-    .. seealso:: :func:`numpy.linalg.qr`
-    """
-    if not cuda.cusolver_enabled:
-        raise RuntimeError('Current cupy only supports cusolver in CUDA 8.0')
+# def qr(a, mode='reduced'):
+#     """QR decomposition.
+#     Decompose a given two-dimensional matrix into ``Q * R``, where ``Q``
+#     is an orthonormal and ``R`` is an upper-triangular matrix.
+#     Args:
+#         a (cupy.ndarray): The input matrix.
+#         mode (str): The mode of decomposition. Currently 'reduced',
+#             'complete', 'r', and 'raw' modes are supported. The default mode
+#             is 'reduced', in which matrix ``A = (M, N)`` is decomposed into
+#             ``Q``, ``R`` with dimensions ``(M, K)``, ``(K, N)``, where
+#             ``K = min(M, N)``.
+#     Returns:
+#         cupy.ndarray, or tuple of ndarray:
+#             Although the type of returned object depends on the mode,
+#             it returns a tuple of ``(Q, R)`` by default.
+#             For details, please see the document of :func:`numpy.linalg.qr`.
+#     .. seealso:: :func:`numpy.linalg.qr`
+#     """
+#     if not cuda.cusolver_enabled:
+#         raise RuntimeError('Current cupy only supports cusolver in CUDA 8.0')
 
-    # TODO(Saito): Current implementation only accepts two-dimensional arrays
-    util._assert_cupy_array(a)
-    util._assert_rank2(a)
+#     # TODO(Saito): Current implementation only accepts two-dimensional arrays
+#     util._assert_cupy_array(a)
+#     util._assert_rank2(a)
 
-    if mode not in ('reduced', 'complete', 'r', 'raw'):
-        if mode in ('f', 'full', 'e', 'economic'):
-            msg = 'The deprecated mode \'{}\' is not supported'.format(mode)
-            raise ValueError(msg)
-        else:
-            raise ValueError('Unrecognized mode \'{}\''.format(mode))
+#     if mode not in ('reduced', 'complete', 'r', 'raw'):
+#         if mode in ('f', 'full', 'e', 'economic'):
+#             msg = 'The deprecated mode \'{}\' is not supported'.format(mode)
+#             raise ValueError(msg)
+#         else:
+#             raise ValueError('Unrecognized mode \'{}\''.format(mode))
 
-    # support float32, float64, complex64, and complex128
-    if a.dtype.char in 'fdFD':
-        dtype = a.dtype.char
-    else:
-        dtype = numpy.find_common_type((a.dtype.char, 'f'), ()).char
+#     # support float32, float64, complex64, and complex128
+#     if a.dtype.char in 'fdFD':
+#         dtype = a.dtype.char
+#     else:
+#         dtype = numpy.find_common_type((a.dtype.char, 'f'), ()).char
 
-    m, n = a.shape
-    x = a.transpose().astype(dtype, order='C', copy=True)
-    mn = min(m, n)
-    handle = device.get_cusolver_handle()
-    dev_info = cupy.empty(1, dtype=numpy.int32)
-    # compute working space of geqrf and orgqr, and solve R
-    if dtype == 'f':
-        geqrf_bufferSize = cusolver.sgeqrf_bufferSize
-        geqrf = cusolver.sgeqrf
-    elif dtype == 'd':
-        geqrf_bufferSize = cusolver.dgeqrf_bufferSize
-        geqrf = cusolver.dgeqrf
-    elif dtype == 'F':
-        geqrf_bufferSize = cusolver.cgeqrf_bufferSize
-        geqrf = cusolver.cgeqrf
-    elif dtype == 'D':
-        geqrf_bufferSize = cusolver.zgeqrf_bufferSize
-        geqrf = cusolver.zgeqrf
-    else:
-        msg = ('dtype must be float32, float64, complex64 or complex128'
-               ' (actual: {})'.format(a.dtype))
-        raise ValueError(msg)
-    buffersize = geqrf_bufferSize(handle, m, n, x.data.ptr, n)
-    workspace = cupy.empty(buffersize, dtype=dtype)
-    tau = cupy.empty(mn, dtype=dtype)
-    geqrf(handle, m, n, x.data.ptr, m,
-          tau.data.ptr, workspace.data.ptr, buffersize, dev_info.data.ptr)
+#     m, n = a.shape
+#     x = a.transpose().astype(dtype, order='C', copy=True)
+#     mn = min(m, n)
+#     handle = device.get_cusolver_handle()
+#     dev_info = cupy.empty(1, dtype=numpy.int32)
+#     # compute working space of geqrf and orgqr, and solve R
+#     if dtype == 'f':
+#         geqrf_bufferSize = cusolver.sgeqrf_bufferSize
+#         geqrf = cusolver.sgeqrf
+#     elif dtype == 'd':
+#         geqrf_bufferSize = cusolver.dgeqrf_bufferSize
+#         geqrf = cusolver.dgeqrf
+#     elif dtype == 'F':
+#         geqrf_bufferSize = cusolver.cgeqrf_bufferSize
+#         geqrf = cusolver.cgeqrf
+#     elif dtype == 'D':
+#         geqrf_bufferSize = cusolver.zgeqrf_bufferSize
+#         geqrf = cusolver.zgeqrf
+#     else:
+#         msg = ('dtype must be float32, float64, complex64 or complex128'
+#                ' (actual: {})'.format(a.dtype))
+#         raise ValueError(msg)
+#     buffersize = geqrf_bufferSize(handle, m, n, x.data.ptr, n)
+#     workspace = cupy.empty(buffersize, dtype=dtype)
+#     tau = cupy.empty(mn, dtype=dtype)
+#     geqrf(handle, m, n, x.data.ptr, m,
+#           tau.data.ptr, workspace.data.ptr, buffersize, dev_info.data.ptr)
 
-    status = int(dev_info[0])
-    if status < 0:
-        raise linalg.LinAlgError(
-            'Parameter error (maybe caused by a bug in cupy.linalg?)')
+#     status = int(dev_info[0])
+#     if status < 0:
+#         raise linalg.LinAlgError(
+#             'Parameter error (maybe caused by a bug in cupy.linalg?)')
 
-    if mode == 'r':
-        r = x[:, :mn].transpose()
-        return util._triu(r)
+#     if mode == 'r':
+#         r = x[:, :mn].transpose()
+#         return util._triu(r)
 
-    if mode == 'raw':
-        if a.dtype.char == 'f':
-            # The original numpy.linalg.qr returns float64 in raw mode,
-            # whereas the cusolver returns float32. We agree that the
-            # following code would be inappropriate, however, in this time
-            # we explicitly convert them to float64 for compatibility.
-            return x.astype(numpy.float64), tau.astype(numpy.float64)
-        elif a.dtype.char == 'F':
-            # The same applies to complex64
-            return x.astype(numpy.complex128), tau.astype(numpy.complex128)
-        return x, tau
+#     if mode == 'raw':
+#         if a.dtype.char == 'f':
+#             # The original numpy.linalg.qr returns float64 in raw mode,
+#             # whereas the cusolver returns float32. We agree that the
+#             # following code would be inappropriate, however, in this time
+#             # we explicitly convert them to float64 for compatibility.
+#             return x.astype(numpy.float64), tau.astype(numpy.float64)
+#         elif a.dtype.char == 'F':
+#             # The same applies to complex64
+#             return x.astype(numpy.complex128), tau.astype(numpy.complex128)
+#         return x, tau
 
-    if mode == 'complete' and m > n:
-        mc = m
-        q = cupy.empty((m, m), dtype)
-    else:
-        mc = mn
-        q = cupy.empty((n, m), dtype)
-    q[:n] = x
+#     if mode == 'complete' and m > n:
+#         mc = m
+#         q = cupy.empty((m, m), dtype)
+#     else:
+#         mc = mn
+#         q = cupy.empty((n, m), dtype)
+#     q[:n] = x
 
-    # solve Q
-    if dtype == 'f':
-        orgqr_bufferSize = cusolver.sorgqr_bufferSize
-        orgqr = cusolver.sorgqr
-    elif dtype == 'd':
-        orgqr_bufferSize = cusolver.dorgqr_bufferSize
-        orgqr = cusolver.dorgqr
-    elif dtype == 'F':
-        orgqr_bufferSize = cusolver.cungqr_bufferSize
-        orgqr = cusolver.cungqr
-    elif dtype == 'D':
-        orgqr_bufferSize = cusolver.zungqr_bufferSize
-        orgqr = cusolver.zungqr
-    buffersize = orgqr_bufferSize(handle, m, mc, mn, q.data.ptr, m,
-                                  tau.data.ptr)
-    workspace = cupy.empty(buffersize, dtype=dtype)
-    orgqr(handle, m, mc, mn, q.data.ptr, m, tau.data.ptr,
-          workspace.data.ptr, buffersize, dev_info.data.ptr)
+#     # solve Q
+#     if dtype == 'f':
+#         orgqr_bufferSize = cusolver.sorgqr_bufferSize
+#         orgqr = cusolver.sorgqr
+#     elif dtype == 'd':
+#         orgqr_bufferSize = cusolver.dorgqr_bufferSize
+#         orgqr = cusolver.dorgqr
+#     elif dtype == 'F':
+#         orgqr_bufferSize = cusolver.cungqr_bufferSize
+#         orgqr = cusolver.cungqr
+#     elif dtype == 'D':
+#         orgqr_bufferSize = cusolver.zungqr_bufferSize
+#         orgqr = cusolver.zungqr
+#     buffersize = orgqr_bufferSize(handle, m, mc, mn, q.data.ptr, m,
+#                                   tau.data.ptr)
+#     workspace = cupy.empty(buffersize, dtype=dtype)
+#     orgqr(handle, m, mc, mn, q.data.ptr, m, tau.data.ptr,
+#           workspace.data.ptr, buffersize, dev_info.data.ptr)
 
-    q = q[:mc].transpose()
-    r = x[:, :mc].transpose()
-    return q, util._triu(r)
+#     q = q[:mc].transpose()
+#     r = x[:, :mc].transpose()
+#     return q, util._triu(r)
