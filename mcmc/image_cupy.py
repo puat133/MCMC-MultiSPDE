@@ -17,7 +17,9 @@ import h5py
 import numba as nb
 import cupyx as cpx
 import cupyx.scipy.fftpack as cpxFFT
-from mcmc.extra_linalg import solve_triangular,qr
+
+from mcmc.extra_linalg import solve_triangular
+from cupy.linalg import qr
 from cupy.prof import TimeRangeDecorator as cupy_profile
 ORDER = 'F'
 IN_CPU_LSTSQ = False

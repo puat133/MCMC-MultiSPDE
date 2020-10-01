@@ -27,7 +27,8 @@ import mcmc.util as u_nb
 from numba import cuda
 from math import sin,cos,sqrt,pi
 from cmath import exp
-from mcmc.extra_linalg import solve_triangular,qr
+from mcmc.extra_linalg import solve_triangular
+from cupy.linalg import qr
 import cupyx as cpx
 #@cupy_profile()
 def construct_w_Half(n):
@@ -593,21 +594,6 @@ def lstsq(a, b, rcond=1e-15,in_cpu=False):
     
 
     if not in_cpu:
-        # u, s, vt = cp.linalg.svd(a, full_matrices=False)
-        # # number of singular values and matrix rank
-        # cutoff = rcond * s.max()
-        # s1 = 1 / s
-        # sing_vals = s <= cutoff
-        # s1[sing_vals] = 0
-        # # Solve the least-squares solution
-        # z = u.conj().T@b*s1
-        # x = vt.conj().T@z
-
-        # Some basic instinct without a proper svd selection. <-- I think this is an exact solution. 
-        # Sometimes not going well
-        # a_t = a.T.conj()
-        # x = cp.linalg.solve(a_t@a,a_t@b)
-
         #do traditional way using QR factorization
         # #1. compute QR factorization of a
         q,r = qr(a) #
