@@ -206,7 +206,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     plt.title('Fourier - imaginary part')
     plt.tight_layout()
     # plt.savefig(str(SimulationResult_dir/'vF_init'+image_extension), bbox_inches='tight')
-    savefig(SimulationResult_dir/'vF_init'+image_extension)
+    savefig(SimulationResult_dir/('vF_init'+image_extension))
     plt.close()
 
     #vF Original 
@@ -221,7 +221,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     plt.title('Fourier - angle')
     plt.tight_layout()
     # plt.savefig(SimulationResult_dir/'vForiginal'+image_extension), bbox_inches='tight')
-    savefig(SimulationResult_dir/'vForiginal'+image_extension)
+    savefig(SimulationResult_dir/('vForiginal'+image_extension))
     plt.close()
 
     #vF Original 
@@ -236,7 +236,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     plt.title('Fourier - phase')
     plt.tight_layout()
     # plt.savefig(SimulationResult_dir/'vF_mean'+image_extension), bbox_inches='tight')
-    savefig(SimulationResult_dir/'vF_mean'+image_extension)
+    savefig(SimulationResult_dir/('vF_mean'+image_extension))
     plt.close()
 
     #Absolute error of vF - vForiginal
@@ -300,7 +300,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
     fig.colorbar(im)
     plt.tight_layout()
     # plt.savefig(SimulationResult_dir/'measurement'+image_extension), bbox_inches='tight')
-    savefig(SimulationResult_dir/'measurement'+image_extension)
+    savefig(SimulationResult_dir/('measurement'+image_extension))
     plt.close()
 
     #plot several slices
@@ -334,7 +334,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
                         np.abs(vF_mean_n[slice_index,n-1:])+2*vF_abs_stdev_n[slice_index,n-1:], 
                         color='b', alpha=0.1)
         # plt.savefig(SimulationResult_dir/'1D_F_Slice_{}'+image_extension.format(slice_index-n)), bbox_inches='tight')
-        savefig(SimulationResult_dir/'1D_F_Slice_{}'+image_extension.format(slice_index-n))
+        savefig(SimulationResult_dir/'1D_F_Slice_{}'.format(slice_index-n)+image_extension)
         plt.close()
 
     error = (target_image-ri_mean_n)
