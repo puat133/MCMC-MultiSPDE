@@ -87,7 +87,7 @@ if __name__=='__main__':
     parser.add_argument('--phantom-name',default="shepp.png",type=str,help='Phantom name, Default=shepp.png')
     parser.add_argument('--meas-type',default="tomo",type=str,help='Two D Measurement, Default=tomo')
     parser.add_argument('--init-folder',default="",type=str,help='Initial condition for the states, Default=empty')
-    ph.add_boolean_argument(parser,'naive',default=False,messages='Use naive computation for logRatio=True')
+    ph.add_boolean_argument(parser,'naive',default=False,messages='Use naive computation for logRatio=False')
     ph.add_boolean_argument(parser,'enable-step-adaptation',default=True,messages='Whether beta-feedback will be enabled, Default=True')
     ph.add_boolean_argument(parser,'print-progress',default=True,messages='Whether progress is printed, Default=True')
     ph.add_boolean_argument(parser,'verbose',default=True,messages='Verbose mode, Default=True')
