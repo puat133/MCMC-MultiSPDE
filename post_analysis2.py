@@ -318,7 +318,7 @@ def _process_data(samples_history,u_samples_history,n,n_ext,t_start,t_end,target
                         color='b', alpha=0.1)
         plt.plot(t_index,ri_compare[slice_index,:],':k',linewidth=0.25,markersize=1)
         # plt.savefig(SimulationResult_dir/'1D_Slice_{}'+image_extension.format(slice_index-(target_image.shape[0]//2))), bbox_inches='tight')
-        savefig(SimulationResult_dir/'1D_Slice_{}'+image_extension.format(slice_index-(target_image.shape[0]//2)))
+        savefig(SimulationResult_dir/'1D_Slice_{}'.format(slice_index-(target_image.shape[0]//2))+image_extension)
         plt.close()
 
     
