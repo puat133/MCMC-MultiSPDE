@@ -64,7 +64,10 @@ if __name__=='__main__':
     # n_samples = 1000,n = 2**6,beta = 2e-1,num = 2**8,uHalfInit=None,
     #                 kappa = 1e17,sigma_u = 5e6,sigma_v = 10,printInterval = 100,
     #                 seed=1,burnPercentage = 5,useLaTeX=True,randVectInitiated=True,
-    #                 showFigures=TruetwoDsim.py --n=32 --n-ext=128 --n-samples=10000 --n-theta=9nt,help='sequence number, Default=0')
+    #                 showFigures=True
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--iter',default=0,type=int,help='number of iteration, Default=0')
+    parser.add_argument('--seq-no',default=0,type=int,help='sequence number, Default=0')
     parser.add_argument('--n-layers',default=2,type=int,help='number SPDE layers, Default=2')
     parser.add_argument('--n-theta',default=45,type=int,help='number theta, Default=50')
     parser.add_argument('--n',default=32,type=int,help='number of Fourier basis, Default=16')
