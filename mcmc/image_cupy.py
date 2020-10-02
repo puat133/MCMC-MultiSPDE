@@ -59,9 +59,10 @@ class FourierAnalysis_2D:
             print("Used bytes so far, after creating ix and iy {}".format(mempool.used_bytes()))
         
         # self.Dmatrix = -(2*util.PI)**2*cp.diag(self.ix.ravel(ORDER)**2+self.iy.ravel(ORDER)**2).astype('int8')
-        self.Dmatrix = cpx.scipy.sparse.diags(-(2*util.PI)**2*(self.ix.ravel(ORDER)**2+self.iy.ravel(ORDER)**2),dtype=cp.float32)
-        if self.verbose:
-            print("Used bytes so far, after creating Dmatrix {}".format(mempool.used_bytes()))
+        # self.Dmatrix = cpx.scipy.sparse.diags(-(2*util.PI)**2*(self.ix.ravel(ORDER)**2+self.iy.ravel(ORDER)**2),dtype=cp.float32)
+        self.D_diag = -(2*util.PI)**2*(self.ix.ravel(ORDER)**2+self.iy.ravel(ORDER)**2)
+        # if self.verbose:
+            # print("Used bytes so far, after creating Dmatrix {}".format(mempool.used_bytes()))
 
         # self.Imatrix = cp.eye((2*self.basis_number-1)**2,dtype=cp.int8)
         self.Imatrix = cpx.scipy.sparse.identity((2*self.basis_number-1)**2,dtype=cp.float32)
@@ -174,7 +175,8 @@ class Lmatrix_2D:
             Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
             # Ku_pow_min_nu = self.fourier.constructMat(uHalf2D,1)
             # Ku_pow_d_per_2 = self.fourier.constructMat(uHalf2D,-1)
-            L = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_d_per_2)/self.sqrt_beta
+            # L = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_d_per_2)/self.sqrt_beta
+            L = ( Ku_pow_min_nu*self.fourier.D_diag - Ku_pow_d_per_2)/self.sqrt_beta
         else:
             #mode ngirit
             temp = -self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
@@ -182,7 +184,8 @@ class Lmatrix_2D:
             temp_cp = cp.asnumpy(temp)
             del temp
             cp._default_memory_pool.free_all_blocks()
-            temp = util.matMulti_sparse(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu),self.fourier.Dmatrix)/self.sqrt_beta
+            # temp = util.matMulti_sparse(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu),self.fourier.Dmatrix)/self.sqrt_beta
+            temp = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu)*self.fourier.D_diag/self.sqrt_beta
             temp_cp += cp.asnumpy(temp) 
             
             del temp
@@ -204,7 +207,8 @@ class Lmatrix_2D:
         if not hybrid:
             Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu,m)
             Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2,m)
-            dL = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) + Ku_pow_d_per_2)/self.sqrt_beta #<-- here using plus sign
+            # dL = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) + Ku_pow_d_per_2)/self.sqrt_beta #<-- here using plus sign
+            dL = ( Ku_pow_min_nu*self.fourier.D_diag + Ku_pow_d_per_2)/self.sqrt_beta #<-- here using plus sign
         else:
             #mode ngirit
             temp = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2,m) #<-- here using plus sign
@@ -212,7 +216,8 @@ class Lmatrix_2D:
             temp_cp = cp.asnumpy(temp)
             del temp
             cp._default_memory_pool.free_all_blocks()
-            temp = util.matMulti_sparse(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu,m),self.fourier.Dmatrix)/self.sqrt_beta
+            # temp = util.matMulti_sparse(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu,m),self.fourier.Dmatrix)/self.sqrt_beta
+            temp = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu,m)*self.fourier.D_diag/self.sqrt_beta
             temp_cp += cp.asnumpy(temp) 
             
             del temp
@@ -233,7 +238,8 @@ class Lmatrix_2D:
         if not hybrid:
             Ku_pow_min_nu = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu)
             Ku_pow_d_per_2 = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_d_per_2)
-            L = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_d_per_2)/sqrt_beta
+            # L = ( util.matMulti_sparse(Ku_pow_min_nu,self.fourier.Dmatrix) - Ku_pow_d_per_2)/sqrt_beta
+            L = ( Ku_pow_min_nu*self.fourier.D_diag - Ku_pow_d_per_2)/sqrt_beta
             
         else:
             #mode ngirit
@@ -242,7 +248,8 @@ class Lmatrix_2D:
             temp_cp = cp.asnumpy(temp)
             del temp
             cp._default_memory_pool.free_all_blocks()
-            temp = util.matMulti_sparse(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu),self.fourier.Dmatrix)/sqrt_beta
+            # temp = util.matMulti_sparse(self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu),self.fourier.Dmatrix)/sqrt_beta
+            temp = self.fourier.constructMatexplicit(uHalf2D,util.kappa_pow_min_nu)*self.fourier.D_diag/sqrt_beta
             temp_cp += cp.asnumpy(temp) 
             
             del temp
@@ -859,7 +866,7 @@ class Simulation():
         
 
         # Lu = ((f.Dmatrix*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*f.Imatrix)*(1/self.sqrtBeta_0)).astype('float32')
-        Lu_diag = ((f.Dmatrix.diagonal()*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*f.Imatrix.diagonal())/self.sqrtBeta_0).astype('float32')
+        Lu_diag = ((f.D_diag*self.kappa**(-self.nu) - self.kappa**(2-self.nu)*f.Imatrix.diagonal())/self.sqrtBeta_0).astype('float32')
         Lu = cpx.scipy.sparse.diags(Lu_diag,dtype=cp.float32)
         
         # del LuReal
