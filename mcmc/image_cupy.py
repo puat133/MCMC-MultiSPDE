@@ -615,7 +615,7 @@ class pCN():
         self.record_count += 1
 
         return accepted,accepted_SqrtBeta
-    
+    @profile
     def _log_ratio(self,L):
 
         
@@ -625,7 +625,7 @@ class pCN():
             r = temp + self.H_t_H + self.cholesky_stabilizer*self.In
             c = np.linalg.cholesky(r)
             Ht = np.linalg.solve(c.astype(np.complex64),self.H_conj_T)
-            Q_inv = self.I.get() - (Ht.conj().T@Ht)
+            Q_inv = self.I - (Ht.conj().T@Ht)
             logRatio = 0.5*(self.y_@Q_inv@self.y_ - np.linalg.slogdet(Q_inv/self.meas_var)[1])
             logRatio = cp.asarray(logRatio)
             
@@ -635,7 +635,7 @@ class pCN():
                 #epsilon is added to make sure that cholesky factorization working
                 r = temp + self.H_t_H + self.cholesky_stabilizer*self.In
                 c = cp.linalg.cholesky(r)
-                Ht = cp.linalg.solve(c.astype(cp.complex64),self.H_conj_T)
+                Ht = cp.linalg.solve(c,self.H_conj_T)
                 Q_inv = self.I - (Ht.conj().T@Ht)
                 
                 # logRatio = 0.5*(self.y@Q_inv@self.y - cp.linalg.slogdet(Q_inv/self.meas_var)[1])
